@@ -83,7 +83,7 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
 };
 
 // Register new user and send OTP for verification
-const registerUser = async (name, email) => {
+const registerUser = async (name, email, phone, department, branch) => {
   // Validate college email
   if (!isCollegeEmail(email)) {
     throw new ApiError(
@@ -101,6 +101,9 @@ const registerUser = async (name, email) => {
   await User.create({
     name,
     email,
+    phone,
+    department,
+    branch,
     college: getCollegeFromEmail(email),
     role: "user",
     isVerified: false,
@@ -183,6 +186,9 @@ const verifyOTP = async (email, otp) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      phone: user.phone,
+      department: user.department,
+      branch: user.branch,
       college: user.college,
       profilePic: user.profilePic,
       role: user.role,
@@ -191,17 +197,6 @@ const verifyOTP = async (email, otp) => {
     accessToken,
     refreshToken,
   };
-};
-
-// Get user by ID
-const getUser = async (userId) => {
-  const user = await User.findById(userId);
-
-  if (!user) {
-    throw new ApiError(404, "User not found", "USER_NOT_FOUND");
-  }
-
-  return user;
 };
 
 const logoutUser = async (userId) => {
@@ -239,20 +234,34 @@ const refreshUserAccessToken = async (incomingRefreshToken) => {
 };
 
 const getProfileById = async (userId) => {
-  const user = await User.findById(userId).select("-refreshToken -__v");
+  const user = await User.findById(userId).select(
+    "_id name email phone department branch college profilePic role isVerified createdAt updatedAt"
+  );
 
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  return user;
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    department: user.department,
+    branch: user.branch,
+    college: user.college,
+    profilePic: user.profilePic,
+    role: user.role,
+    isVerified: user.isVerified,
+    joinedAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 };
 
 export {
   registerUser,
   sendOTP,
   verifyOTP,
-  getUser,
   logoutUser,
   refreshUserAccessToken,
   getProfileById,

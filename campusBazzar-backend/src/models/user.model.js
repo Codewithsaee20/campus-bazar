@@ -26,12 +26,26 @@ const userSchema = new mongoose.Schema(
 
     phone: {
       type: String,
+      required: [true, "Phone number is required"],
+      trim: true,
       validate: {
         validator: function(v) {
-          return !v || (v.length >= 10 && v.length <= 15);
+          return /^\+?[0-9]{10,15}$/.test(v);
         },
-        message: "Phone number must be between 10 digits"
+        message: "Phone number must be 10 to 15 digits"
       }
+    },
+
+    department: {
+      type: String,
+      required: [true, "Department is required"],
+      trim: true,
+    },
+
+    branch: {
+      type: String,
+      required: [true, "Branch is required"],
+      trim: true,
     },
 
     profilePic: {

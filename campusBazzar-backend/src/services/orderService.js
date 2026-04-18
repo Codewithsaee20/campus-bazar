@@ -1,8 +1,43 @@
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 import { Order } from "../models/order.model.js";
 import { Listing } from "../models/listing.model.js";
 import { Book } from "../models/book.model.js";
+import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
+
+const sellerBuyerPopulate = {
+  path: "buyerId",
+  select: "name phone department branch email college",
+};
+
+const orderMailTransporter =
+  process.env.EMAIL_USER && process.env.EMAIL_PASS
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      })
+    : null;
+
+const notifySellerListingBooked = async ({ sellerEmail, sellerName, buyerName, title }) => {
+  if (!orderMailTransporter || !sellerEmail) return;
+
+  await orderMailTransporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: sellerEmail,
+    subject: "CampusBazar - Your listing is booked",
+    html: `
+      <h2>Hello ${sellerName || "Seller"},</h2>
+      <p>Your listing has been booked by a buyer.</p>
+      <p><strong>Book:</strong> ${title}</p>
+      <p><strong>Buyer:</strong> ${buyerName || "A CampusBazar user"}</p>
+      <p>Please open your selling orders to view buyer details and coordinate cash on delivery.</p>
+    `,
+  });
+};
 
 const createOrder = async (buyerId, listingId) => {
   if (!listingId) {
@@ -47,6 +82,23 @@ const createOrder = async (buyerId, listingId) => {
     college: listing.college,
     status: "PENDING",
   });
+
+  // Notification should not block order creation.
+  try {
+    const [seller, buyer] = await Promise.all([
+      User.findById(listing.sellerId).select("email name"),
+      User.findById(buyerId).select("name"),
+    ]);
+
+    await notifySellerListingBooked({
+      sellerEmail: seller?.email,
+      sellerName: seller?.name,
+      buyerName: buyer?.name,
+      title: listing.title,
+    });
+  } catch (error) {
+    console.warn("Failed to send listing booked notification:", error.message);
+  }
 
   return order;
 };
@@ -200,7 +252,9 @@ const getBuyerOrders = async (buyerId) => {
 };
 
 const getSellerOrders = async (sellerId) => {
-  return Order.find({ sellerId }).sort({ createdAt: -1 });
+  return Order.find({ sellerId })
+    .populate(sellerBuyerPopulate)
+    .sort({ createdAt: -1 });
 };
 
 const getOrderById = async (orderId, userId) => {
@@ -219,6 +273,10 @@ const getOrderById = async (orderId, userId) => {
 
   if (!isBuyer && !isSeller) {
     throw new ApiError(403, "Not authorized to view this order", "UNAUTHORIZED");
+  }
+
+  if (isSeller) {
+    return order.populate(sellerBuyerPopulate);
   }
 
   return order;

@@ -5,7 +5,13 @@ import api from '../utils/api';
 import ParticleField from '../components/ParticleField';
 
 const SignUpPage = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', college: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    branch: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -19,10 +25,8 @@ const SignUpPage = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.post('/auth/register', formData);
-      const { user, accessToken } = response.data.data;
-      setAuth(user, accessToken);
-      navigate('/marketplace');
+      await api.post('/auth/register', formData);
+      navigate('/login');
     } catch (err) {
       setError(err.response?.data?.message || 'Backend not connected. Use "Demo Mode" below to explore the app.');
     } finally {
@@ -36,27 +40,6 @@ const SignUpPage = () => {
       'demo-token-123'
     );
     navigate('/marketplace');
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '0.9rem 1.25rem',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '14px',
-    color: '#ffffff',
-    fontSize: '1rem',
-    outline: 'none',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.2s',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: 600,
-    color: '#c0c0d8',
-    marginBottom: '0.5rem',
   };
 
   return (
@@ -153,27 +136,51 @@ const SignUpPage = () => {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>College / University</label>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Phone Number (WhatsApp)</label>
             <input
-              type="text"
-              name="college"
-              value={formData.college}
+              type="tel"
+              name="phone"
+              value={formData.phone}
               onChange={handleChange}
               required
-              placeholder="Ex: Gujarat Technological University"
+              placeholder="Ex: 9876543210"
               className="form-input"
             />
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Department</label>
+              <input
+                type="text"
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                required
+                placeholder="Ex: Engineering"
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Branch</label>
+              <input
+                type="text"
+                name="branch"
+                value={formData.branch}
+                onChange={handleChange}
+                required
+                placeholder="Ex: Computer Science"
+                className="form-input"
+              />
+            </div>
+          </div>
+
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Secure Password</label>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>College / University</label>
             <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="••••••••"
+              type="text"
+              disabled
+              placeholder="Auto-detected from college email"
               className="form-input"
             />
           </div>

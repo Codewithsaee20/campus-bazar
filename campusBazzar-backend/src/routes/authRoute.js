@@ -17,5 +17,6 @@ router.post("/verify-otp", verifyOTP);
 router.post("/logout", verifyToken, logout);
 router.post("/refresh", refreshToken);
 router.get("/me", verifyToken, getProfile);
+router.get("/profile", verifyToken, getProfile);
 
 export default router;
