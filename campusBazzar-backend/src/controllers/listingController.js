@@ -1,62 +1,75 @@
-import {} from '../services/listingService.js';
+import {
+    createListing as createListingService,
+    getListings,
+    getListingById as getListingByIdService,
+    updateListing as updateListingService,
+    deleteListing as deleteListingService,
+} from "../services/listingService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { ApiError } from "../utils/ApiError.js";
 
-const createListing = asyncHandler(async (req,res) => {
-    
-    const sellerId = req.user._id;
-    const college = req.user.college;
+const createListing = asyncHandler(async (req, res) => {
+    const payload = { ...req.body };
 
-    const listing = await listingService.createListing({...req.body, sellerId, college});
-
-    res.status(201).json(new ApiResponse(201, 'Listing created successfully', listing));
-
-})
-
-const getAllListings = asyncHandler(async (req,res) => {
-    const college = req.user.college;
-
-    const listings = await listingService.getAllListings(req.params.id, college);
-
-    res.json(new ApiResponse(200, 'Listings retrieved successfully', listings));
-})
-
-const getListingById = asyncHandler(async (req,res) => {
-    const sellerId = req.user._id;
-
-    const result = await listingService.getListingById(req.params.id, sellerId);
-
-    if (!result) {
-        throw new ApiError(404, 'LISTING_NOT_FOUND', 'Listing not found');
+    if (Array.isArray(req.uploadedImages) && req.uploadedImages.length > 0) {
+        payload.images = req.uploadedImages;
     }
 
-    res.json(new ApiResponse(200, 'Listing retrieved successfully', result));
-})
+    const listing = await createListingService(payload, req.user._id, req.user.college);
 
-const updateListing = asyncHandler(async (req,res) => {
-    const sellerId = req.user._id;
+    return res
+        .status(201)
+        .json(new ApiResponse(201, listing, "Listing created successfully"));
+});
 
-    const listing = await listingService.updateListing(req.params.id, req.body, sellerId);
+const getAllListings = asyncHandler(async (req, res) => {
+    const listings = await getListings({
+        department: req.query.department,
+        semester: req.query.semester,
+        subject: req.query.subject,
+        minPrice: req.query.minPrice,
+        maxPrice: req.query.maxPrice,
+    }, req.user?.college);
 
-    if (!listing) {
-        throw new ApiError(404, 'LISTING_NOT_FOUND', 'Listing not found');
+    return res
+        .status(200)
+        .json(new ApiResponse(200, listings, "Listings retrieved successfully"));
+});
+
+const getListingById = asyncHandler(async (req, res) => {
+    const listing = await getListingByIdService(req.params.id);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, listing, "Listing retrieved successfully"));
+});
+
+const updateListing = asyncHandler(async (req, res) => {
+    const payload = { ...req.body };
+
+    if (Array.isArray(req.uploadedImages) && req.uploadedImages.length > 0) {
+        payload.images = req.uploadedImages;
     }
 
-    res.json(new ApiResponse(200, 'Listing updated successfully', listing));
-})
+    const listing = await updateListingService(req.params.id, req.user._id, payload);
 
-const deleteListing = asyncHandler(async (req,res) => {
-    const sellerId = req.user._id;
+    return res
+        .status(200)
+        .json(new ApiResponse(200, listing, "Listing updated successfully"));
+});
 
-    await listingService.deleteListing(req.params.id, sellerId);
-    res.json(new ApiResponse(200, 'Listing deleted successfully'));
-})
+const deleteListing = asyncHandler(async (req, res) => {
+    await deleteListingService(req.params.id, req.user._id);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Listing deleted successfully"));
+});
 
 export {
     createListing,
     getAllListings,
     getListingById,
     updateListing,
-    deleteListing
-}
+    deleteListing,
+};

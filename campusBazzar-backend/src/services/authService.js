@@ -38,17 +38,7 @@ const generateTokens = (user) => {
   return { accessToken, refreshToken };
 };
 
-// Send OTP to email
-const sendOTP = async (email) => {
-  // Validate college email
-  if (!isCollegeEmail(email)) {
-    throw new ApiError(
-      400,
-      "Only registered college emails are allowed",
-      "INVALID_EMAIL_DOMAIN"
-    );
-  }
-
+const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
   // Check rate limit — no OTP request within 60 seconds
   const existingOTP = await OTP.findOne({ email });
   if (existingOTP) {
@@ -76,7 +66,7 @@ const sendOTP = async (email) => {
     await mailTransporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
-      subject: "CampusBazar - Your OTP for Login",
+      subject,
       html: `
         <h2>Welcome to CampusBazar!</h2>
         <p>Your One-Time Password (OTP) is:</p>
@@ -89,7 +79,57 @@ const sendOTP = async (email) => {
     throw new ApiError(500, "Failed to send OTP email", "EMAIL_SEND_ERROR");
   }
 
-  return { message: "OTP sent successfully to your email" };
+  return { message: "OTP sent to your college email" };
+};
+
+// Register new user and send OTP for verification
+const registerUser = async (name, email) => {
+  // Validate college email
+  if (!isCollegeEmail(email)) {
+    throw new ApiError(
+      400,
+      "Only registered college emails are allowed",
+      "INVALID_EMAIL_DOMAIN"
+    );
+  }
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    throw new ApiError(400, "Account already exists, please login");
+  }
+
+  await User.create({
+    name,
+    email,
+    college: getCollegeFromEmail(email),
+    role: "user",
+    isVerified: false,
+  });
+
+  return createAndSendOTP(email, "CampusBazar - Verify your registration OTP");
+};
+
+// Send OTP for login
+const sendOTP = async (email) => {
+  // Validate college email
+  if (!isCollegeEmail(email)) {
+    throw new ApiError(
+      400,
+      "Only registered college emails are allowed",
+      "INVALID_EMAIL_DOMAIN"
+    );
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ApiError(400, "No account found, please register first");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(400, "Please complete registration by verifying your OTP");
+  }
+
+  return createAndSendOTP(email, "CampusBazar - Your login OTP");
 };
 
 // Verify OTP and authenticate user
@@ -106,38 +146,27 @@ const verifyOTP = async (email, otp) => {
   // Find OTP record
   const otpRecord = await OTP.findOne({ email });
   if (!otpRecord) {
-    throw new ApiError(404, "OTP not found or expired", "OTP_NOT_FOUND");
+    throw new ApiError(400, "OTP not found or expired");
   }
 
   // Check if OTP is expired
   if (new Date() > otpRecord.expiresAt) {
     await OTP.deleteOne({ email });
-    throw new ApiError(401, "OTP has expired", "OTP_EXPIRED");
+    throw new ApiError(400, "OTP has expired");
   }
 
   // Compare plain OTP against hashed
   const isOTPValid = await bcrypt.compare(otp, otpRecord.otp);
   if (!isOTPValid) {
-    throw new ApiError(401, "Invalid OTP", "INVALID_OTP");
+    throw new ApiError(400, "Invalid OTP");
   }
 
-  // Find or create user
-  let user = await User.findOne({ email });
-  const college = getCollegeFromEmail(email);
-
+  const user = await User.findOne({ email });
   if (!user) {
-    // Create new user with extracted college name from email
-    user = await User.create({
-      name: email.split("@")[0], // Default name from email
-      email,
-      college,
-      isVerified: true,
-    });
-  } else {
-    // Update existing user
-    user.isVerified = true;
-    user.college = college;
+    throw new ApiError(400, "No account found, please register first");
   }
+
+  user.isVerified = true;
 
   // Generate tokens
   const { accessToken, refreshToken } = generateTokens(user);
@@ -175,4 +204,56 @@ const getUser = async (userId) => {
   return user;
 };
 
-export { sendOTP, verifyOTP, getUser, generateTokens };
+const logoutUser = async (userId) => {
+  await User.findByIdAndUpdate(userId, { refreshToken: null });
+};
+
+const refreshUserAccessToken = async (incomingRefreshToken) => {
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Refresh token missing");
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+  } catch {
+    throw new ApiError(401, "Invalid refresh token");
+  }
+
+  const user = await User.findById(decoded._id);
+  if (!user || user.refreshToken !== incomingRefreshToken) {
+    throw new ApiError(401, "Invalid refresh token");
+  }
+
+  const accessToken = jwt.sign(
+    {
+      _id: user._id,
+      college: user.college,
+      role: user.role,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: "15m" }
+  );
+
+  return { accessToken };
+};
+
+const getProfileById = async (userId) => {
+  const user = await User.findById(userId).select("-refreshToken -__v");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return user;
+};
+
+export {
+  registerUser,
+  sendOTP,
+  verifyOTP,
+  getUser,
+  logoutUser,
+  refreshUserAccessToken,
+  getProfileById,
+};

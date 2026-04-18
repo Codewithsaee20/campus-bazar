@@ -19,7 +19,10 @@ import healthCheckRouter from "./routes/healthCheckRoute.js";
 import categoryRouter from "./routes/categoryRoute.js";
 import listingRouter from "./routes/listingRoute.js";
 import orderRouter from "./routes/orderRoute.js";
-import paymentRouter from "./routes/paymentRoute.js";
+import interestRoute from "./routes/interestRoute.js";
+import ratingRoute from "./routes/ratingRoute.js";
+import reportRoute from "./routes/reportRoute.js";
+import bookRoute from "./routes/bookRoute.js";
 
 
 app.use("/api/v1/health", healthCheckRouter);
@@ -27,7 +30,10 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/listings", listingRouter);
 app.use("/api/v1/categories", categoryRouter);
 app.use("/api/v1/orders", orderRouter);
-app.use("/api/v1/payments", paymentRouter);
+app.use('/api/v1/interest', interestRoute);
+app.use('/api/v1/ratings', ratingRoute);
+app.use('/api/v1/reports', reportRoute);
+app.use('/api/v1/books', bookRoute);
 
 // Global error handler - must be the last middleware
 app.use((err, req, res, next) => {

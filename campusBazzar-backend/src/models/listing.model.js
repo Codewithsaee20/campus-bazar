@@ -16,6 +16,18 @@ const listingSchema = new mongoose.Schema(
       maxLength: 100,
     },
 
+    bookId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    isbn: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     description: {
       type: String,
       required: true,
@@ -37,25 +49,48 @@ const listingSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // server-calculated: mrp × 0.60 — what seller receives
+    // server-calculated: resale price
     price: {
       type: Number,
       required: true,
       min: 0,
     },
 
-    // server-calculated: price + ₹10 — what buyer pays
-    buyerPrice: {
+    suggestedPrice: {
       type: Number,
       required: true,
       min: 0,
     },
 
-    // always ₹10 — platform cut
-    platformFee: {
-      type: Number,
-      required: true,
-      default: 10,
+    sourceOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Order',
+      default: null,
+    },
+
+    mrpLocked: {
+      type: Boolean,
+      default: false,
+    },
+
+    flaggedForReview: {
+      type: Boolean,
+      default: false,
+    },
+
+    department: {
+      type: String,
+      trim: true,
+    },
+
+    semester: {
+      type: String,
+      trim: true,
+    },
+
+    subject: {
+      type: String,
+      trim: true,
     },
 
     condition: {
@@ -65,7 +100,20 @@ const listingSchema = new mongoose.Schema(
     },
 
     images: {
-      type: [String],
+      type: [
+        {
+          url: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          public_id: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+        },
+      ],
       default: [],
       validate: {
         validator: (arr) => arr.length <= 5,
@@ -75,7 +123,7 @@ const listingSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['Active', 'Sold', 'Removed'],
+      enum: ['Active', 'Sold'],
       default: 'Active',
     },
 
@@ -98,6 +146,7 @@ listingSchema.index({ title: 'text', description: 'text' });
 listingSchema.index({ categoryId: 1 });
 listingSchema.index({ college: 1, status: 1 });
 listingSchema.index({ sellerId: 1 });
-listingSchema.index({ buyerPrice: 1 });
+listingSchema.index({ price: 1 });
+listingSchema.index({ bookId: 1 });
 
 export const Listing = mongoose.model('Listing', listingSchema);

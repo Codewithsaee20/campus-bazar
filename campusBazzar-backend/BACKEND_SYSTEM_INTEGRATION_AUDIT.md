@@ -1,549 +1,230 @@
-# CampusBazar Backend Audit Report (Integration-Ready)
+# CampusBazar Backend System Integration Audit (Refreshed v3)
 
-Date: 2026-04-18  
-Scope: Backend architecture, APIs, controllers/services/models flow, auth/security, payments, data contracts, and frontend integration readiness.
+Date: 2026-04-18
+Scope: Backend runtime architecture, route/controller/service/model integrity, auth/session handling, listing image upload flow, and integration readiness.
 
 ---
 
 ## 1) Executive Summary
 
-The backend is an Express + MongoDB monolith structured into routes, controllers, services, models, middleware, and shared response/error utilities.
+The backend is now materially more stable than the previous audit snapshot:
 
-Current integration status:
-- Auth routes for register/login/profile are present and partially aligned with frontend expectations.
-- Listings, orders, categories, and payments APIs exist at route level.
-- Internal implementation has major controller/service contract drift and auth token/middleware inconsistencies that can block end-to-end commerce flows.
+- OTP-only auth remains consistent.
+- DB startup is fail-fast.
+- Listing image upload is wired end-to-end.
+- All mounted route modules now exist and load.
+- Book controller and book service are now aligned on the same contract.
+- Order creation now has both application-level and database-level protection against duplicate active orders.
 
-Primary blockers before reliable integration:
-- Controller-service mismatch in listing/order domains (some controllers call non-existent service signatures).
-- JWT signing and verification secret mismatch risk.
-- `req.user` hydration does not include all fields required by business logic (especially college).
-- Response constructor usage inconsistent in some controllers, causing unstable payload format.
+Current readiness is good, with only medium-priority hardening items remaining.
 
 ---
 
-## 2) Backend Technical Architecture
+## 2) Runtime Snapshot
 
-### Stack
-- Node.js (ES modules)
-- Express 5
-- Mongoose
-- JWT auth
-- Cookie parser + CORS
-- Razorpay SDK integration
+### 2.1 Stack and Boot
 
-### Runtime bootstrap
-- Entry file: `server.js`
-- App wiring: `src/app.js`
-- DB init: `src/config/dbconnection.js`
+- Runtime: Node.js + ES modules
+- HTTP: Express
+- DB: MongoDB via Mongoose
+- Auth/session: JWT access + refresh cookie strategy
+- Media: Cloudinary via `uploadMiddleware`
 
-### Module layers
-- Routes: `src/routes/*`
-- Controllers: `src/controllers/*`
-- Services: `src/services/*`
-- Models: `src/models/*`
-- Middleware: `src/middleware/*`
-- Utilities: `src/utils/*`
+Boot flow:
+1. `server.js` imports `app` and `connectDB()`.
+2. `connectDB()` attempts Mongo connection.
+3. On DB failure, connector logs and exits process with code 1.
+4. On success, server listens.
+
+### 2.2 Reliability of Startup
+
+- DB failure no longer allows a half-alive server.
+- Route imports currently resolve successfully.
 
 ---
 
-## 3) Request Lifecycle and Runtime Flow
-
-1. `server.js` loads env and app, connects DB, then starts listener.
-2. `src/app.js` configures CORS, JSON/urlencoded parsers, cookies.
-3. Route prefixes mounted under `/api/v1/*`.
-4. Route handlers call controllers.
-5. Controllers call services (in intended architecture).
-6. Services use models for DB operations and business rules.
-7. Uncaught async errors bubble via `asyncHandler` to global error middleware.
-8. Global error middleware emits standardized JSON error envelope.
-
-Observed divergence:
-- Some service files contain controller-style code (`req`, `res`, `ApiResponse`) instead of pure business functions, breaking intended layering consistency.
-
----
-
-## 4) API Surface Inventory
-
-Mounted from `src/app.js`:
-- `GET /api/v1/health`
-- Auth:
-  - `POST /api/v1/auth/register`
-  - `POST /api/v1/auth/login`
-  - `GET /api/v1/auth/profile` (protected)
-- Listings:
-  - `POST /api/v1/listings` (protected)
-  - `GET /api/v1/listings`
-  - `GET /api/v1/listings/:id`
-  - `PUT /api/v1/listings/:id` (protected)
-  - `DELETE /api/v1/listings/:id` (protected)
-- Categories:
-  - `GET /api/v1/categories`
-  - `POST /api/v1/categories` (admin)
-  - `PUT /api/v1/categories/:id` (admin)
-  - `DELETE /api/v1/categories/:id` (admin)
-- Orders (all protected by router-level middleware):
-  - `GET /api/v1/orders/my/buying`
-  - `GET /api/v1/orders/my/selling`
-  - `POST /api/v1/orders`
-  - `GET /api/v1/orders/:id`
-  - `PATCH /api/v1/orders/:id/cancel`
-  - `POST /api/v1/orders/:id/otp/generate`
-  - `POST /api/v1/orders/:id/otp/verify`
-- Payments:
-  - `POST /api/v1/payments/create-order` (protected)
-
----
-
-## 5) Route-to-Controller Audit
-
-## 5.1 Health
-
-- Route: `src/routes/healthCheckRoute.js`
-- Controller: `src/controllers/healthController.js`
-
-Behavior:
-- Returns healthy response envelope.
-
-Quality:
-- Simple and stable.
-
-## 5.2 Auth
-
-- Route: `src/routes/authRoute.js`
-- Controller: `src/controllers/authController.js`
-- Service: `src/services/authService.js`
-
-Register flow:
-- Validates required fields.
-- Creates user.
-- Generates access/refresh tokens.
-- Sets both tokens in cookies.
-- Returns user + accessToken in JSON payload.
-
-Login flow:
-- Validates credentials.
-- Sets cookie tokens and returns user + accessToken.
-
-Profile flow:
-- Uses `verifyToken` middleware and returns current user profile.
-
-Strengths:
-- Frontend currently uses this successfully for login/signup.
-
-Critical notes:
-- Token payload construction in `authService` uses `User.college` (model property), not actual user college instance value.
-- Access token signed with `ACCESS_TOKEN_SECRET`, but middleware verification uses `JWT_SECRET`.
-
-## 5.3 Categories
-
-- Route: `src/routes/categoryRoute.js`
-- Controller: `src/controllers/categoryController.js`
-- Service: `src/services/categroryService.js`
-
-Behavior:
-- Read all active categories.
-- Soft delete by setting `isActive=false`.
-- Admin-only write operations through role middleware.
-
-Quality:
-- Service layer reasonably clean and aligned.
-
-Issue:
-- Some controller `ApiResponse` constructor arguments appear in reversed data/message order.
-
-## 5.4 Listings
-
-- Route: `src/routes/listingRoute.js`
-- Controller: `src/controllers/listingController.js`
-- Service file exists: `src/services/listingService.js`
-
-Observed implementation conflict:
-- `listingController.js` imports `{}` from service but later references `listingService.*` functions.
-- `listingService.js` is currently implemented as controller-style route handlers using `req`, `res`, and `ApiResponse`, not as reusable pure service functions.
-
-Impact:
-- The route-controller-service chain is structurally inconsistent and likely fails at runtime once listing endpoints are exercised.
-
-## 5.5 Orders
-
-- Route: `src/routes/orderRoute.js`
-- Controller: `src/controllers/orderController.js`
-- Service: `src/services/orderSerivce.js`
-
-Observed implementation conflict:
-- `orderController.js` expects service methods with payload-style signatures, for example `orderService.createOrder({ listingId, buyerId, ... })`.
-- `orderSerivce.js` defines functions with `(req, res)` controller signatures and returns HTTP responses directly.
-- Exported method names also differ (`getOrderbyId` vs controller call `getOrderById`, `generateOrderOtp` vs controller call `generateOtp`).
-
-Impact:
-- High likelihood of broken order flows even if routes resolve.
-
-## 5.6 Payments
-
-- Route: `src/routes/paymentRoute.js`
-- Controller: `src/controllers/paymentController.js`
-- Service: `src/services/paymentService.js`
-
-Behavior intent:
-- Validate ownership of pending order.
-- Create Razorpay order.
-- Save `razorpayOrderId` in order record.
-- Return key/order metadata to frontend.
-
-Issue:
-- Controller reads `req.user.id` while middleware sets `_id`.
-- `ApiResponse` in payment controller appears to use wrong constructor argument order.
-
----
-
-## 6) Service Layer Audit
-
-## 6.1 authService
-
-Capabilities:
-- register user
-- login user
-- fetch user profile
-- generate tokens
-
-Key issue:
-- Token payload currently includes `college: User.college` (from model class), not actual user doc field.
-
-Recommended shape for token payload:
-- `id`
-- `college`
-- `role`
-
-## 6.2 categroryService
-
-Capabilities:
-- list active categories
-- create category with unique slug check
-- update category
-- soft delete category
-
-Status:
-- Relatively stable.
-
-## 6.3 listingService
-
-Current status:
-- Contains advanced filtering, pagination, and ownership logic.
-- But coded in controller-style with `req/res` and API response emission, not service abstraction.
-
-Risk:
-- Architectural mismatch with controller expectations.
-
-## 6.4 orderSerivce
-
-Current status:
-- Includes business logic for create/cancel/orders/OTP verification.
-- Also controller-style implementation with `req/res` and inconsistent symbols.
-
-Notable defects:
-- Uses `ListingId` and `listingID` key variants inconsistently.
-- Status checks use values not matching listing schema enum casing (`ACTIVE` vs `Active`).
-- `verifyOtp` references `orderId` symbol that is undefined in scope.
-- OTP field naming mismatches (`otpExpiry` vs schema uses `otpExpiresAt`).
-
-## 6.5 paymentService
-
-Strengths:
-- Validates Razorpay config availability.
-- Validates ownership and pending status before creating payment order.
-
-Risk:
-- Amount source uses listing snapshot `price`; business rule may need `buyerPrice` depending platform fee collection model.
-
----
-
-## 7) Data Model Audit
-
-## 7.1 User (`src/models/user.model.js`)
-
-Fields:
-- name, email, password, college, profilePic, phone, role, isVerified, refreshToken
-
-Hooks:
-- pre-save password hashing
-
-Methods:
-- `comparePassword`
-
-Strengths:
-- Good basic constraints and defaults.
-
-## 7.2 Category (`src/models/category.model.js`)
-
-Fields:
-- name, slug, icon, suggestedMaxPrice, isActive
-
-Strengths:
-- Supports soft delete via `isActive`.
-
-## 7.3 Listing (`src/models/listing.model.js`)
-
-Fields:
-- sellerId, title, description, categoryId, mrp, price, buyerPrice, platformFee, condition, images, status, college, viewCount
-
-Indexes:
-- text index for search
-- category/seller/college/status/buyerPrice indexes
-
-Strengths:
-- Supports campus scoping and list filtering.
-
-## 7.4 Order (`src/models/order.model.js`)
-
-Fields:
-- buyerId, sellerId, listingId, listing snapshot, college, status lifecycle
-- payment refs: razorpayOrderId/razorpayPaymentId
-- OTP fields, payout tracking, cancellation reason
-
-Strengths:
-- Good base lifecycle model for campus handoff commerce.
-
-Mismatch risks:
-- Service layer sometimes writes fields with names that do not exactly match schema keys.
-
----
-
-## 8) Auth, Security, and Session Audit
-
-## 8.1 Current auth transport model
-
-- Cookies are set for access and refresh token.
-- Frontend also sends bearer token from local storage.
+## 3) Router Inventory (Current Code Reality)
+
+### 3.1 Present Route Files
+
+`src/routes` currently contains:
+
+- `authRoute.js`
+- `bookRoute.js`
+- `categoryRoute.js`
+- `healthCheckRoute.js`
+- `interestRoute.js`
+- `listingRoute.js`
+- `orderRoute.js`
+- `ratingRoute.js`
+- `reportRoute.js`
+
+### 3.2 Mounted in app.js
+
+Mounted paths include:
+
+- `/api/v1/health`
+- `/api/v1/auth`
+- `/api/v1/listings`
+- `/api/v1/categories`
+- `/api/v1/orders`
+- `/api/v1/interest`
+- `/api/v1/ratings`
+- `/api/v1/reports`
+- `/api/v1/books`
 
 Result:
-- Hybrid dual transport with no explicit reconciliation strategy.
-
-## 8.2 Middleware behavior
-
-`verifyToken` currently:
-- reads bearer or cookie token
-- verifies with `JWT_SECRET`
-- hydrates `req.user` with `_id` and `role`
-
-Issues:
-- If token signed with a different secret, all protected endpoints fail.
-- Business logic expects `req.user.college` in listing/order flows.
-
-## 8.3 Role authorization
-
-`authorizeRoles` depends on `req.user.role`, but token payload likely does not include role reliably today.
+- Previous missing-route startup blocker is resolved.
 
 ---
 
-## 9) Response and Error Contract Audit
+## 4) Domain Assessment
 
-## 9.1 Standard wrappers
+### 4.1 Auth Domain
 
-- `ApiResponse`: `(statusCode, data, message)`
-- `ApiError`: supports multiple legacy invocation styles
+Status:
+- OTP-first auth remains functional in service/controller flow.
+- User schema is consistent with OTP-only approach.
 
-## 9.2 Consistency issues
+Strengths:
+- Proper `ApiError` usage in auth service.
+- Refresh/logout/profile route behavior remains aligned.
 
-Some controllers instantiate response as `(statusCode, message, data)` which can invert response semantics consumed by frontend.
+Remaining notes:
+- Cookie mode remains strict and may need deployment-specific review.
 
-Priority:
-- Normalize all response construction to exact same order.
+### 4.2 Listing Domain
 
----
+Status:
+- Listing create/update support image upload via middleware.
+- Controller maps `req.uploadedImages` to listing payload.
 
-## 10) Backend-Frontend Contract Alignment
+Implemented upload chain:
+1. `listingRoute` applies `uploadImages` on POST and PUT.
+2. `uploadMiddleware` validates file type and uploads to Cloudinary.
+3. Uploaded payload shape: `{ url, public_id }`.
+4. `listingController` assigns `payload.images = req.uploadedImages`.
+5. `listing.model` stores image objects.
 
-Frontend currently depends on:
-- auth login/register returning `data.user` + `data.accessToken`
+Current gaps:
+- Middleware max image count is 3 while schema allows 5.
+- Frontend still needs to map card image source to `images[0]?.url` for backend-fed listings.
 
-Backend availability for future frontend work:
-- Listings, orders, payments, categories endpoints exist at route level
+### 4.3 Book Domain
 
-Main blockers for consuming those endpoints safely:
-- Listing controller/service contract mismatch
-- Order controller/service contract mismatch
-- Auth middleware claim hydration gaps (`college`)
-- Token secret mismatch
-- Inconsistent response payload construction
+Status:
+- `Book` model and `bookService` are present.
+- `bookRoute` and `bookController` now exist and are mounted.
+- `bookController.findOrCreateBook` and `bookService.findOrCreateBook` now share the same object-based contract.
 
----
+Remaining note:
+- Search fallback still exists in `bookController.searchBooks` for when text search is unavailable; this is acceptable and not a startup risk.
 
-## 11) Critical Findings (Severity Ordered)
+### 4.4 Order Domain
 
-## 11.1 Critical
+Status:
+- `Order` schema uses `otpExpiresAt` and canonical status enum.
+- `bookId` field is present in schema and indexed.
+- `createOrder` now checks for existing active orders before creating a new one.
+- A partial database index now provides a safety net against duplicate active orders.
+- `cancelOrder` restores the listing to `Active`.
 
-1. Controller-service contract break in listings domain.
-2. Controller-service contract break in orders domain.
-3. JWT sign/verify secret mismatch risk (`ACCESS_TOKEN_SECRET` vs `JWT_SECRET`).
-4. Missing `college` in `req.user` while listing/order logic requires it.
-
-## 11.2 High
-
-5. Token payload built with model static property (`User.college`) instead of user value.
-6. Payment controller expects `req.user.id` but middleware sets `_id`.
-7. Response constructor argument order inconsistent in some controllers.
-8. Enum/value casing mismatches in order-listing status checks.
-
-## 11.3 Medium
-
-9. Dual cookie+bearer strategy without refresh/logout lifecycle endpoint.
-10. Naming inconsistencies and typos (`orderSerivce`, `categroryService`, field key variants) increase maintenance risk.
-
----
-
-## 12) Recommended Refactor Plan
-
-## Phase 1: Contract Stabilization (highest priority)
-
-1. Unify JWT secret usage for sign and verify.
-2. Standardize JWT claims to include `id`, `college`, `role`.
-3. Update middleware to populate canonical `req.user` object with all required fields.
-4. Normalize all `ApiResponse` constructor call order.
-
-## Phase 2: Layer Realignment
-
-1. Convert `listingService` into pure functions without `req/res`.
-2. Convert `orderSerivce` into pure functions without `req/res`.
-3. Ensure controller function signatures and service exports match exactly.
-4. Resolve naming mismatches and typos while preserving route behavior.
-
-## Phase 3: Commerce Reliability
-
-1. Validate all status transitions against enum values.
-2. Align payment amount source (`price` vs `buyerPrice`) with business rule.
-3. Add explicit payment success webhook/verification flow.
-4. Add logout + refresh token lifecycle endpoints if required by auth strategy.
+Remaining note:
+- Resale counts now use the `bookId` business key path, so the previous `_id` mismatch risk has been removed.
 
 ---
 
-## 13) API Contract Recommendations for Frontend Integration
+## 5) Model Integrity
 
-### 13.1 Standard success envelope
+### 5.1 User Model
 
-```json
-{
-  "statusCode": 200,
-  "data": {},
-  "message": "Success",
-  "success": true
-}
-```
+Resolved:
+- Password hash hook removed.
+- `comparePassword` removed.
+- OTP-only schema is clean.
 
-### 13.2 Standard error envelope
+### 5.2 Listing Model
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human readable message"
-  }
-}
-```
+Updated:
+- Includes `bookId`, `isbn`, `sourceOrderId`, `mrpLocked`, `flaggedForReview`, `department`, `semester`, `subject`.
+- `images` uses `{ url, public_id }` object array.
 
-### 13.3 Minimum listing payload for frontend compatibility
+### 5.3 Order Model
 
-```json
-{
-  "id": "listingId",
-  "title": "...",
-  "description": "...",
-  "category": "Engineering",
-  "condition": "Like New",
-  "mrp": 650,
-  "price": 320,
-  "buyerPrice": 330,
-  "college": "IIT Bombay",
-  "seller": {
-    "id": "...",
-    "name": "..."
-  },
-  "images": ["..."],
-  "status": "Active"
-}
-```
+Updated:
+- Status enum exactly: `PENDING`, `ACCEPTED`, `COMPLETED`, `CANCELLED`.
+- Uses `otpExpiresAt`.
+- Includes `bookId` field.
+- Includes partial index for one active order per listing.
 
-### 13.4 Minimum order payload for profile/cart compatibility
+### 5.4 Book Model
 
-```json
-{
-  "id": "orderId",
-  "status": "PENDING_PAYMENT",
-  "createdAt": "2026-04-18T12:00:00.000Z",
-  "listing": {
-    "id": "...",
-    "title": "...",
-    "image": "..."
-  },
-  "buyer": { "id": "...", "name": "..." },
-  "seller": { "id": "...", "name": "..." },
-  "listingSnapShot": {
-    "buyerPrice": 330,
-    "price": 320,
-    "platformFee": 10
-  }
-}
-```
+Updated:
+- Unique indexed `bookId`.
+- Includes `originalMrp`, `totalResales`, and `mrpLocked`.
 
 ---
 
-## 14) Testing and Verification Recommendations
+## 6) Error Contract and Service Layer Quality
 
-## Backend unit/integration tests
+Improved:
+- `listingService`, `orderService`, and `bookService` largely use `ApiError` for domain failures.
+- Book service/controller contract is now aligned.
 
-- Auth:
-  - register/login token claims include id/college/role
-  - middleware verification succeeds with same secret
-- Listings:
-  - create/read/update/delete ownership and college scoping
-  - filter + pagination behavior
-- Orders:
-  - create order from active listing only
-  - self-purchase blocked
-  - status transitions valid
-  - OTP generate/verify happy and failure paths
-- Payments:
-  - pending-payment guard
-  - unauthorized buyer blocked
-  - Razorpay order id persistence
-- Contract:
-  - all success responses follow same envelope shape
-
-## Smoke tests (integration with frontend)
-
-- login -> marketplace fetch listings -> add to cart -> create order -> payment init -> profile order visible
+Remaining service correctness issues:
+1. No additional service-level blockers are currently identified from the latest code snapshot.
 
 ---
 
-## 15) Backend Readiness Score
+## 7) Findings by Severity (Current)
 
-Current backend readiness for full frontend integration: 4.8 / 10
+### Medium
 
-Scoring rationale:
-- Route surface and domain modeling are in place.
-- Core commerce capabilities are designed.
-- But internal implementation consistency is not production-safe yet due to contract and layering mismatches.
-
----
-
-## 16) Priority Sprint Plan
-
-Sprint 1:
-- Fix auth claims + secret consistency + middleware user hydration
-- Normalize ApiResponse usage across controllers
-- Repair listing route-controller-service chain
-
-Sprint 2:
-- Repair order route-controller-service chain
-- Fix status/value/key mismatches in order service
-- Validate end-to-end order lifecycle via tests
-
-Sprint 3:
-- Harden payment orchestration (verification/webhook)
-- Add refresh/logout lifecycle APIs
-- Final contract freeze for frontend integration
+1. Upload middleware limit (3) and schema limit (5) mismatch.
+2. CORS origin remains hardcoded.
+3. No request schema validation middleware for mutating routes.
 
 ---
 
-End of Report.
+## 8) What Is Fixed Since Previous Refresh
+
+- Missing route module startup blocker resolved (all mounted routes now exist).
+- `bookController` and `bookService` now share the same object-based contract.
+- `Order` schema now includes indexed `bookId`.
+- Order creation now checks for active orders before inserting.
+- Database-level partial index added for one active order per listing.
+- Cancelled orders now reactivate the listing.
+
+---
+
+## 9) Remediation Plan (Next)
+
+### Phase 1: Correctness
+
+1. Align image upload max count between middleware and schema.
+
+### Phase 2: Consistency and Safety
+
+1. Align image max count between middleware and schema.
+2. Add request payload validation.
+
+### Phase 3: Hardening
+
+1. Move CORS origins to environment config.
+
+---
+
+## 10) Readiness Score (Refreshed v4)
+
+Backend integration readiness: **8.4 / 10**
+
+Rationale:
+- Structural and startup blockers are resolved.
+- Route wiring and upload flows are functional.
+- Duplicate active order protection is in place at both app and DB levels.
+- The previous resale lookup bug has been removed.
+- Remaining issues are now mainly production-hardening items.
+
+---
+
+End of refreshed report.
