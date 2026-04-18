@@ -1,114 +1,107 @@
-import { sendOTP, verifyOTP, getUser, generateTokens } from "../services/authService.js";
-import User from "../models/user.model.js";
+import {
+  registerUser,
+  sendOTP as sendOTPService,
+  verifyOTP as verifyOTPService,
+  logoutUser,
+  refreshUserAccessToken,
+  getProfileById,
+} from "../services/authService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
-import jwt from "jsonwebtoken";
 
-const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax"
+const baseCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict",
 };
 
-// Send OTP
-const sendOTPHandler = asyncHandler(async (req, res) => {
-    const { email } = req.body;
+const register = asyncHandler(async (req, res) => {
+  const { name, email, phone, department, branch } = req.body;
 
-    if (!email) {
-        throw new ApiError(400, "Email is required", "MISSING_EMAIL");
-    }
+  if (!name || !email || !phone || !department || !branch) {
+    throw new ApiError(
+      400,
+      "Name, email, phone, department and branch are required"
+    );
+  }
 
-    const result = await sendOTP(email);
+  await registerUser(name, email, phone, department, branch);
 
-    return res.status(200).json(
-        new ApiResponse(200, { email }, result.message)
+  return res
+    .status(201)
+    .json(new ApiResponse(201, {}, "OTP sent to your college email"));
+});
+
+const sendOTP = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "Email is required");
+  }
+
+  await sendOTPService(email);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "OTP sent to your college email"));
+});
+
+const verifyOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    throw new ApiError(400, "Email and otp are required");
+  }
+
+  const { user, accessToken, refreshToken } = await verifyOTPService(email, otp);
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, {
+      ...baseCookieOptions,
+      maxAge: 15 * 60 * 1000,
+    })
+    .cookie("refreshToken", refreshToken, {
+      ...baseCookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
+    .json(
+      new ApiResponse(200, { user, accessToken }, "Logged in successfully")
     );
 });
 
-// Verify OTP
-const verifyOTPHandler = asyncHandler(async (req, res) => {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-        throw new ApiError(400, "Email and OTP are required", "MISSING_CREDENTIALS");
-    }
-
-    const result = await verifyOTP(email, otp);
-
-    return res
-        .status(200)
-        .cookie("accessToken", result.accessToken, cookieOptions)
-        .cookie("refreshToken", result.refreshToken, cookieOptions)
-        .json(
-            new ApiResponse(200, {
-                user: result.user,
-                accessToken: result.accessToken
-            }, "OTP verified successfully")
-        );
-});
-
-// Logout
 const logout = asyncHandler(async (req, res) => {
-    const userId = req.user._id;
+  await logoutUser(req.user._id);
 
-    // Clear refreshToken from database
-    await User.findByIdAndUpdate(userId, { refreshToken: null }, { new: true });
-
-    return res
-        .status(200)
-        .clearCookie("accessToken", cookieOptions)
-        .clearCookie("refreshToken", cookieOptions)
-        .json(new ApiResponse(200, {}, "Logged out successfully"));
+  return res
+    .status(200)
+    .clearCookie("accessToken", baseCookieOptions)
+    .clearCookie("refreshToken", baseCookieOptions)
+    .json(new ApiResponse(200, {}, "Logged out successfully"));
 });
 
-// Refresh access token
-const refresh = asyncHandler(async (req, res) => {
-    const refreshToken = req.cookies?.refreshToken;
+const refreshToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies?.refreshToken;
+  const { accessToken } = await refreshUserAccessToken(incomingRefreshToken);
 
-    if (!refreshToken) {
-        throw new ApiError(401, "Refresh token not found", "NO_REFRESH_TOKEN");
-    }
-
-    try {
-        const decodedToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-        const user = await User.findById(decodedToken._id);
-
-        if (!user || user.refreshToken !== refreshToken) {
-            throw new ApiError(401, "Invalid refresh token", "INVALID_REFRESH_TOKEN");
-        }
-
-        const { accessToken, refreshToken: newRefreshToken } = generateTokens(user);
-
-        // Update refreshToken in database
-        user.refreshToken = newRefreshToken;
-        await user.save({ validateBeforeSave: false });
-
-        return res
-            .status(200)
-            .cookie("accessToken", accessToken, cookieOptions)
-            .cookie("refreshToken", newRefreshToken, cookieOptions)
-            .json(
-                new ApiResponse(200, { accessToken }, "Token refreshed successfully")
-            );
-    } catch (error) {
-        throw new ApiError(401, error.message || "Invalid refresh token", "TOKEN_VERIFICATION_FAILED");
-    }
-});
-
-// Get Profile (protected)
-const getProfile = asyncHandler(async (req, res) => {
-    const user = await getUser(req.user._id);
-
-    return res.status(200).json(
-        new ApiResponse(200, user, "User profile fetched successfully")
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, {
+      ...baseCookieOptions,
+      maxAge: 15 * 60 * 1000,
+    })
+    .json(
+      new ApiResponse(200, { accessToken }, "Token refreshed successfully")
     );
 });
 
-export {
-    sendOTPHandler,
-    verifyOTPHandler,
-    logout,
-    refresh,
-    getProfile
-};
+const getProfile = asyncHandler(async (req, res) => {
+  const user = await getProfileById(req.user._id);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { user }, "Profile fetched successfully"));
+});
+
+export { register, sendOTP, verifyOTP, logout, refreshToken, getProfile };

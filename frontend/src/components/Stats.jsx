@@ -1,14 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { Archive, CircleCheckBig, Users } from 'lucide-react';
 
-const Counter = ({ from = 0, to, duration = 2, suffix = '', prefix = '' }) => {
+const Counter = ({ from = 0, to, duration = 2 }) => {
   const [count, setCount] = useState(from);
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const isInView = useInView(ref, { once: true, margin: '-80px' });
 
   useEffect(() => {
-    if (!isInView) return;
-    
+    if (!isInView) return undefined;
+
     let startTime;
     let animationFrame;
 
@@ -16,12 +17,8 @@ const Counter = ({ from = 0, to, duration = 2, suffix = '', prefix = '' }) => {
       if (!startTime) startTime = timestamp;
       const progress = timestamp - startTime;
       const percentage = Math.min(progress / (duration * 1000), 1);
-      
-      // Easing out function
-      const easeOutQuart = 1 - Math.pow(1 - percentage, 4);
-      const current = from + (to - from) * easeOutQuart;
-      
-      setCount(current);
+      const eased = 1 - Math.pow(1 - percentage, 4);
+      setCount(from + (to - from) * eased);
 
       if (percentage < 1) {
         animationFrame = requestAnimationFrame(updateCount);
@@ -29,54 +26,58 @@ const Counter = ({ from = 0, to, duration = 2, suffix = '', prefix = '' }) => {
     };
 
     animationFrame = requestAnimationFrame(updateCount);
-
     return () => cancelAnimationFrame(animationFrame);
   }, [from, to, duration, isInView]);
 
-  return (
-    <span ref={ref}>
-      {prefix}{Math.floor(count).toLocaleString()}{suffix}
-    </span>
-  );
+  return <span ref={ref}>{Math.floor(count).toLocaleString()}</span>;
 };
 
-const Stats = () => {
-  const stats = [
-    { label: "Verified Students", value: 10, suffix: "K+", color: "var(--color-cyan)", prefix: "" },
-    { label: "Active Listings", value: 45, suffix: "K+", color: "var(--color-violet)", prefix: "" },
-    { label: "Successful Orders", value: 120, suffix: "K+", color: "var(--color-pink)", prefix: "" }
-  ];
+const stats = [
+  { label: 'Total Listings', value: 480, icon: Archive },
+  { label: 'Books Sold', value: 1260, icon: CircleCheckBig },
+  { label: 'Active Users', value: 820, icon: Users },
+];
 
+const Stats = () => {
   return (
-    <section id="stats" style={{ padding: '6rem 0', position: 'relative' }}>
+    <section id="stats" className="landing-section landing-stats-section">
       <div className="container">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '3rem' }}>
-          {stats.map((stat, i) => (
-            <motion.div 
-              key={i}
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: i * 0.2 }}
-              style={{ textAlign: 'center' }}
-            >
-              <div 
-                style={{ 
-                  fontSize: '4.5rem', 
-                  fontWeight: 900, 
-                  color: stat.color,
-                  lineHeight: 1.1,
-                  marginBottom: '0.5rem',
-                  textShadow: `0 0 20px ${stat.color}40`
-                }}
+        <motion.div
+          className="landing-section-heading"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.7 }}
+        >
+          <div className="landing-section-eyebrow">Live stats</div>
+          <h2>Campus marketplace activity in real numbers</h2>
+          <p>
+            A quick snapshot of how many books are listed, how many have already moved, and how many students are active.
+          </p>
+        </motion.div>
+
+        <div className="landing-stats-grid">
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <motion.article
+                key={stat.label}
+                className="landing-stat-card glass"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.55, delay: index * 0.1 }}
               >
-                <Counter to={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
-              </div>
-              <div style={{ fontSize: '1.25rem', color: '#a0a0c0', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>
-                {stat.label}
-              </div>
-            </motion.div>
-          ))}
+                <div className="landing-stat-icon">
+                  <Icon size={22} />
+                </div>
+                <div className="landing-stat-value">
+                  <Counter to={stat.value} />
+                </div>
+                <div className="landing-stat-label">{stat.label}</div>
+              </motion.article>
+            );
+          })}
         </div>
       </div>
     </section>
