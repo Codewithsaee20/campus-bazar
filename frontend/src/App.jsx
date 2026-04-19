@@ -6,8 +6,10 @@ import SignUpPage from './pages/SignUpPage';
 import OtpVerificationPage from './pages/OtpVerificationPage';
 import FeedPage from './pages/FeedPage';
 import ListingDetailPage from './pages/ListingDetailPage';
+import MarketplaceBookDetailPage from './pages/MarketplaceBookDetailPage';
 import ListingFormPage from './pages/ListingFormPage';
 import MyListingsPage from './pages/MyListingsPage';
+import ProfilePage from './pages/ProfilePage';
 import CategoriesPage from './pages/CategoriesPage';
 import BookDetailPage from './pages/BookDetailPage';
 import MyOrdersPage from './pages/MyOrdersPage';
@@ -97,6 +99,7 @@ function App() {
       <Route path="/verify-otp" element={<OtpVerificationPage />} />
 
       <Route path="/feed" element={<FeedPage />} />
+      <Route path="/marketplace/books/:id" element={<MarketplaceBookDetailPage />} />
       <Route path="/listings/:id" element={<ListingDetailPage />} />
       <Route path="/listings/new" element={<ListingFormPage mode="create" />} />
       <Route path="/listings/:id/edit" element={<ListingFormPage mode="edit" />} />
@@ -149,7 +152,7 @@ function App() {
         path="/profile"
         element={(
           <ProtectedRoute>
-            <MyListingsPage />
+            <ProfilePage />
           </ProtectedRoute>
         )}
       />

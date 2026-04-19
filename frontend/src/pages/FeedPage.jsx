@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Link, useSearchParams } from 'react-router-dom';
-import { BookOpen, Filter, Loader2, Search, X } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { BookOpen, Filter, Heart, Search, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { mockBooks } from '../data/mockBooks';
 import { categoryApi, listingApi, unwrapData } from '../utils/campusApi';
+import { readWishlist, toggleWishlist, WISHLIST_UPDATED_EVENT } from '../utils/wishlist';
 
 const LOCAL_LISTINGS_KEY = 'campus-bazzar-local-listings';
 
@@ -124,6 +125,7 @@ const matchesPrice = (price, range) => {
 };
 
 const FeedPage = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState([]);
   const [genres, setGenres] = useState(['All']);
@@ -131,8 +133,7 @@ const FeedPage = () => {
   const [usingFallback, setUsingFallback] = useState(false);
   const [error, setError] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedBook, setSelectedBook] = useState(null);
-  const [selectedBookLoading, setSelectedBookLoading] = useState(false);
+  const [wishlistIds, setWishlistIds] = useState(() => new Set(readWishlist().map((item) => String(item.id))));
   const [filters, setFilters] = useState({
     genre: searchParams.get('genre') || 'All',
     priceRange: 'all',
@@ -197,7 +198,6 @@ const FeedPage = () => {
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setIsFilterOpen(false);
-        setSelectedBook(null);
       }
     };
 
@@ -206,14 +206,27 @@ const FeedPage = () => {
   }, []);
 
   useEffect(() => {
-    const shouldLockScroll = isFilterOpen || Boolean(selectedBook);
+    const shouldLockScroll = isFilterOpen;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = shouldLockScroll ? 'hidden' : previousOverflow;
 
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isFilterOpen, selectedBook]);
+  }, [isFilterOpen]);
+
+  useEffect(() => {
+    const syncWishlist = () => {
+      setWishlistIds(new Set(readWishlist().map((item) => String(item.id))));
+    };
+
+    window.addEventListener('storage', syncWishlist);
+    window.addEventListener(WISHLIST_UPDATED_EVENT, syncWishlist);
+    return () => {
+      window.removeEventListener('storage', syncWishlist);
+      window.removeEventListener(WISHLIST_UPDATED_EVENT, syncWishlist);
+    };
+  }, []);
 
   const visibleBooks = useMemo(() => {
     const query = filters.search.trim().toLowerCase();
@@ -234,24 +247,17 @@ const FeedPage = () => {
 
   const activeFilterCount = Number(filters.genre !== 'All') + Number(filters.priceRange !== 'all') + Number(filters.condition !== 'All') + Number(Boolean(filters.search.trim()));
 
-  const openBook = async (book) => {
-    setSelectedBook(book);
-    setSelectedBookLoading(true);
+  const openBook = (book) => {
+    navigate(`/marketplace/books/${encodeURIComponent(book.id)}`, {
+      state: { book },
+    });
+  };
 
-    if (book.source === 'api') {
-      try {
-        const response = await listingApi.getById(book.id);
-        const detail = normalizeListing(unwrapData(response));
-        setSelectedBook((current) => ({
-          ...current,
-          ...detail,
-        }));
-      } catch (bookError) {
-        setError(bookError?.response?.data?.message || 'Could not load book details.');
-      }
-    }
-
-    setSelectedBookLoading(false);
+  const handleToggleWishlist = (book, event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    toggleWishlist(book);
+    setWishlistIds(new Set(readWishlist().map((item) => String(item.id))));
   };
 
   const resetFilters = () => {
@@ -352,6 +358,14 @@ const FeedPage = () => {
                 <div className="marketplace-card-image-wrap">
                   <img className="marketplace-card-image" src={book.image} alt={book.title} />
                   <span className="marketplace-card-chip">{book.genre}</span>
+                  <button
+                    type="button"
+                    className={`marketplace-wishlist-btn ${wishlistIds.has(String(book.id)) ? 'active' : ''}`}
+                    onClick={(event) => handleToggleWishlist(book, event)}
+                    aria-label={wishlistIds.has(String(book.id)) ? 'Remove from wishlist' : 'Add to wishlist'}
+                  >
+                    <Heart size={15} fill={wishlistIds.has(String(book.id)) ? 'currentColor' : 'none'} />
+                  </button>
                 </div>
 
                 <div className="marketplace-card-body">
@@ -477,72 +491,6 @@ const FeedPage = () => {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {selectedBook ? (
-          <motion.div
-            className="marketplace-modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelectedBook(null)}
-          >
-            <motion.div
-              className="marketplace-modal glass"
-              initial={{ opacity: 0, y: 24, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <button type="button" className="marketplace-icon-button marketplace-modal-close" onClick={() => setSelectedBook(null)}>
-                <X size={18} />
-              </button>
-
-              {selectedBookLoading ? (
-                <div className="marketplace-modal-loading">
-                  <Loader2 size={24} className="marketplace-spin" />
-                  <p>Loading book details...</p>
-                </div>
-              ) : (
-                <div className="marketplace-modal-grid">
-                  <div className="marketplace-modal-media">
-                    <img src={selectedBook.image} alt={selectedBook.title} />
-                    <span className="marketplace-card-chip">{selectedBook.genre}</span>
-                  </div>
-
-                  <div className="marketplace-modal-copy">
-                    <p className="marketplace-drawer-kicker">Book details</p>
-                    <h2>{selectedBook.title}</h2>
-                    <p className="marketplace-modal-description">{selectedBook.description}</p>
-
-                    <div className="marketplace-modal-price-row">
-                      <div>
-                        <span className="marketplace-meta-label">Price</span>
-                        <strong>₹{selectedBook.price}</strong>
-                      </div>
-                      <div>
-                        <span className="marketplace-meta-label">Condition</span>
-                        <strong>{selectedBook.condition}</strong>
-                      </div>
-                      <div>
-                        <span className="marketplace-meta-label">College</span>
-                        <strong>{selectedBook.college}</strong>
-                      </div>
-                    </div>
-
-                    <div className="marketplace-info-card">
-                      <span className="marketplace-meta-label">Seller</span>
-                      <strong>{selectedBook.sellerName}</strong>
-                      <p>{selectedBook.sellerEmail}</p>
-                      <p>{selectedBook.sellerPhone}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 };

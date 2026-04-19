@@ -205,7 +205,7 @@ const ListingFormPage = () => {
       setSuccessMessage('Your book is now live in the marketplace. Redirecting...');
       setForm(emptyForm);
       setSelectedImage(null);
-      setTimeout(() => navigate('/marketplace'), 1200);
+      setTimeout(() => navigate('/my-listings'), 1200);
     } catch (submitError) {
       setPageError(submitError?.response?.data?.message || 'Could not save listing.');
     } finally {
