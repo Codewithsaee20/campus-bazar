@@ -71,7 +71,7 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
         <h2>Welcome to CampusBazar!</h2>
         <p>Your One-Time Password (OTP) is:</p>
         <h1 style="letter-spacing: 5px; font-family: monospace;">${otp}</h1>
-        <p>This OTP will expire in 10 minutes.</p>
+        <p>This OTP will expire in 2 minutes.</p>
         <p>Do not share this OTP with anyone.</p>
       `,
     });

@@ -64,6 +64,20 @@ const getListingById = async (id) => {
   return listing;
 };
 
+const getMyListingById = async (id, userId) => {
+  const listing = await Listing.findById(id);
+
+  if (!listing) {
+    throw new ApiError(404, "Listing not found", "LISTING_NOT_FOUND");
+  }
+
+  if (String(listing.sellerId) !== String(userId)) {
+    throw new ApiError(403, "Not authorized to view this listing", "NOT_AUTHORIZED");
+  }
+
+  return listing;
+};
+
 const updateListing = async (id, userId, data) => {
   const listing = await Listing.findById(id);
 
@@ -125,4 +139,4 @@ const deleteListing = async (id, userId) => {
   await Listing.deleteOne({ _id: id });
 };
 
-export { createListing, getListings, getListingById, updateListing, deleteListing };
+export { createListing, getListings, getListingById, getMyListingById, updateListing, deleteListing };

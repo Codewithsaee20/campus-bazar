@@ -2,6 +2,7 @@ import {
     createListing as createListingService,
     getListings,
     getListingById as getListingByIdService,
+    getMyListingById as getMyListingByIdService,
     updateListing as updateListingService,
     deleteListing as deleteListingService,
 } from "../services/listingService.js";
@@ -44,6 +45,14 @@ const getListingById = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, listing, "Listing retrieved successfully"));
 });
 
+    const getMyListingById = asyncHandler(async (req, res) => {
+        const listing = await getMyListingByIdService(req.params.id, req.user._id);
+
+        return res
+        .status(200)
+        .json(new ApiResponse(200, listing, "Your listing retrieved successfully"));
+    });
+
 const updateListing = asyncHandler(async (req, res) => {
     const payload = { ...req.body };
 
@@ -70,6 +79,7 @@ export {
     createListing,
     getAllListings,
     getListingById,
+    getMyListingById,
     updateListing,
     deleteListing,
 };
