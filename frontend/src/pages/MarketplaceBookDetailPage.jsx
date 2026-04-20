@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import { mockBooks } from '../data/mockBooks';
 import { listingApi, unwrapData } from '../utils/campusApi';
 import { isInWishlist, toggleWishlist } from '../utils/wishlist';
+import { useCartStore } from '../store/useCartStore';
 
 const LOCAL_LISTINGS_KEY = 'campus-bazzar-local-listings';
 
@@ -122,6 +123,9 @@ const MarketplaceBookDetailPage = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
+  const [showCartOptions, setShowCartOptions] = useState(false);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const cartItems = useCartStore((state) => state.items);
 
   const resolveBook = async (bookId) => {
     const safeId = bookId || '';
@@ -208,6 +212,33 @@ const MarketplaceBookDetailPage = () => {
   }, [book]);
 
   const activeImage = imageList[activeImageIndex] || book?.image;
+  const isInCart = useMemo(
+    () => cartItems.some((item) => String(item.id) === String(book?.id)),
+    [cartItems, book?.id]
+  );
+
+  const handleAddToCart = () => {
+    if (!book) return;
+
+    addToCart({
+      ...book,
+      author: book.author || book.sellerName,
+    });
+    setShowCartOptions(true);
+  };
+
+  const handleBuyNow = () => {
+    if (!book) return;
+
+    if (!isInCart) {
+      addToCart({
+        ...book,
+        author: book.author || book.sellerName,
+      });
+    }
+
+    navigate('/cart');
+  };
 
   const discountPercent = useMemo(() => {
     if (!book) return 0;
@@ -406,9 +437,25 @@ const MarketplaceBookDetailPage = () => {
                   </div>
 
                   <div className="book-detail-actions">
-                    <button type="button" className="book-detail-btn book-detail-btn--ghost">Add to Cart</button>
-                    <button type="button" className="book-detail-btn book-detail-btn--solid">Buy Now</button>
+                    <button type="button" className="book-detail-btn book-detail-btn--ghost" onClick={handleAddToCart}>
+                      {isInCart ? 'Added to Cart' : 'Add to Cart'}
+                    </button>
+                    <button type="button" className="book-detail-btn book-detail-btn--solid" onClick={handleBuyNow}>
+                      Buy Now
+                    </button>
                   </div>
+
+                  {showCartOptions ? (
+                    <div className="book-cart-options glass">
+                      <p>Added to cart. Choose what you want to do next.</p>
+                      <div className="book-cart-options-actions">
+                        <Link to="/cart" className="book-cart-option book-cart-option--primary">View Cart</Link>
+                        <button type="button" className="book-cart-option" onClick={() => setShowCartOptions(false)}>
+                          Continue Shopping
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </section>

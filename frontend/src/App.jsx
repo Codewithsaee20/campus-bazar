@@ -12,6 +12,7 @@ import MyListingsPage from './pages/MyListingsPage';
 import ProfilePage from './pages/ProfilePage';
 import CategoriesPage from './pages/CategoriesPage';
 import BookDetailPage from './pages/BookDetailPage';
+import CartPage from './pages/CartPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import SellerOrdersPage from './pages/SellerOrdersPage';
 import OtpHandoffPage from './pages/OtpHandoffPage';
@@ -110,6 +111,14 @@ function App() {
 
       <Route path="/orders/my" element={<MyOrdersPage />} />
       <Route path="/orders/selling" element={<SellerOrdersPage />} />
+      <Route
+        path="/orders/requests"
+        element={(
+          <ProtectedRoute>
+            <SellerOrdersPage />
+          </ProtectedRoute>
+        )}
+      />
       <Route path="/orders/:id/handoff" element={<OtpHandoffPage />} />
 
       <Route path="/interests" element={<InterestsPage />} />
@@ -147,7 +156,14 @@ function App() {
           </ProtectedRoute>
         )}
       />
-      <Route path="/cart" element={<MyOrdersPage />} />
+      <Route
+        path="/cart"
+        element={(
+          <ProtectedRoute>
+            <CartPage />
+          </ProtectedRoute>
+        )}
+      />
       <Route
         path="/profile"
         element={(

@@ -26,11 +26,11 @@ const register = asyncHandler(async (req, res) => {
     );
   }
 
-  await registerUser(name, email, phone, department, branch);
+  const result = await registerUser(name, email, phone, department, branch);
 
   return res
     .status(201)
-    .json(new ApiResponse(201, {}, "OTP sent to your college email"));
+    .json(new ApiResponse(201, result || {}, result?.message || "OTP sent to your college email"));
 });
 
 const sendOTP = asyncHandler(async (req, res) => {
@@ -40,11 +40,11 @@ const sendOTP = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Email is required");
   }
 
-  await sendOTPService(email);
+  const result = await sendOTPService(email);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "OTP sent to your college email"));
+    .json(new ApiResponse(200, result || {}, result?.message || "OTP sent to your college email"));
 });
 
 const verifyOTP = asyncHandler(async (req, res) => {

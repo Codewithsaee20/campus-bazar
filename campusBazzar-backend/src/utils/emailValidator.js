@@ -1,23 +1,40 @@
 // src/utils/emailValidator.js
 
-const ALLOWED_DOMAINS = process.env.ALLOWED_COLLEGE_DOMAINS?.split(',').map(d => d.trim().toLowerCase()) || [];
-console.log('ALLOWED_DOMAINS ENV:', process.env.ALLOWED_COLLEGE_DOMAINS);
+const ALLOWED_DOMAINS = process.env.ALLOWED_COLLEGE_DOMAINS
+  ?.split(',')
+  .map((d) => d.trim().toLowerCase())
+  .filter(Boolean) || [];
+
+const getDomainFromEmailInternal = (email) => {
+  if (!email || !email.includes('@')) return '';
+  return email.split('@')[1]?.toLowerCase().trim() || '';
+};
+
+const getMatchingAllowedDomain = (domain) => {
+  if (!domain) return '';
+
+  // Prefer exact/longest suffix match so subdomains map to the same college domain.
+  const matches = ALLOWED_DOMAINS.filter(
+    (allowed) => domain === allowed || domain.endsWith(`.${allowed}`)
+  );
+
+  if (matches.length === 0) return '';
+  return matches.sort((a, b) => b.length - a.length)[0];
+};
 
 export function isCollegeEmail(email) {
-  if (!email || !email.includes('@')) return false;
-  const domain = email.split('@')[1]?.toLowerCase().trim();
-  return ALLOWED_DOMAINS.includes(domain);
+  const domain = getDomainFromEmailInternal(email);
+  return Boolean(getMatchingAllowedDomain(domain));
 }
 
 export function getCollegeFromEmail(email) {
-  if (!email || !email.includes('@')) return '';
-  const domain = email.split('@')[1]?.toLowerCase().trim();
-  // vcet.edu.in → vcet
-  return domain?.split('.')[0] || '';
+  const domain = getDomainFromEmailInternal(email);
+  const canonicalAllowedDomain = getMatchingAllowedDomain(domain);
+
+  if (canonicalAllowedDomain) return canonicalAllowedDomain;
+  return domain;
 }
 
 export function getDomainFromEmail(email) {
-  if (!email || !email.includes('@')) return '';
-  // student@vcet.edu.in → vcet.edu.in
-  return email.split('@')[1]?.toLowerCase().trim() || '';
+  return getDomainFromEmailInternal(email);
 }

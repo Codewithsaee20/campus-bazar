@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, Filter, Heart, Search, X } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Filter, Heart, Search, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { mockBooks } from '../data/mockBooks';
 import { categoryApi, listingApi, unwrapData } from '../utils/campusApi';
 import { readWishlist, toggleWishlist, WISHLIST_UPDATED_EVENT } from '../utils/wishlist';
+import dashboardFallbackImage from '../assets/hero.png';
 
 const LOCAL_LISTINGS_KEY = 'campus-bazzar-local-listings';
 
@@ -17,6 +18,24 @@ const PRICE_RANGES = [
 ];
 
 const CONDITION_OPTIONS = ['All', 'New', 'Like New', 'Good', 'Fair', 'Worn'];
+
+const DASHBOARD_SLIDES = [
+  { id: 'book-marketplace', title: 'Book Marketplace', image: '/dashboard/book-marketplace.png' },
+  { id: 'secure-campus-verification', title: 'Secure Campus Verification Hub', image: '/dashboard/secure-campus-verification-hub.png' },
+  { id: 'user-profile-management', title: 'User Profile Management', image: '/dashboard/user-profile-management.png' },
+  { id: 'advanced-filtering', title: 'Advanced Filtering', image: '/dashboard/advanced-filtering.png' },
+  { id: 'secure-order-management', title: 'Secure Order Management', image: '/dashboard/secure-order-management.png' },
+  { id: 'interest-negotiation', title: 'Interest and Negotiation System', image: '/dashboard/interest-negotiation-system.png' },
+  { id: 'student-reputation', title: 'Student Reputation System', image: '/dashboard/student-reputation-system.png' },
+  { id: 'category-based-filtering', title: 'Category Based Filtering', image: '/dashboard/category-based-filtering.png' },
+];
+
+const COLLECTION_KEYWORDS = {
+  notes: ['note', 'notes', 'lecture note', 'class note', 'handwritten'],
+  'engineering-materials': ['engineering', 'dsa', 'os', 'mathematics', 'electronics', 'mechanics'],
+  'lab-records': ['lab', 'practical', 'journal', 'assignment', 'record'],
+  pyqs: ['pyq', 'previous year', 'question paper', 'question bank'],
+};
 
 const buildFallbackEmail = (sellerName) => {
   const slug = sellerName.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '');
@@ -124,6 +143,36 @@ const matchesPrice = (price, range) => {
   return true;
 };
 
+const matchesCollection = (book, collection) => {
+  if (!collection || collection === 'all') return true;
+
+  if (collection === 'engineering') {
+    return book.genre.toLowerCase() === 'engineering';
+  }
+
+  if (collection === 'science') {
+    return book.genre.toLowerCase() === 'science';
+  }
+
+  if (collection === 'commerce') {
+    return book.genre.toLowerCase() === 'commerce';
+  }
+
+  if (collection === 'arts') {
+    return book.genre.toLowerCase() === 'arts';
+  }
+
+  const keywords = COLLECTION_KEYWORDS[collection];
+  if (!keywords) return true;
+
+  const haystack = [book.title, book.description, book.genre, book.college, book.sellerName]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return keywords.some((keyword) => haystack.includes(keyword));
+};
+
 const FeedPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,13 +182,32 @@ const FeedPage = () => {
   const [usingFallback, setUsingFallback] = useState(false);
   const [error, setError] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [wishlistIds, setWishlistIds] = useState(() => new Set(readWishlist().map((item) => String(item.id))));
   const [filters, setFilters] = useState({
     genre: searchParams.get('genre') || 'All',
+    collection: searchParams.get('collection') || 'all',
     priceRange: 'all',
     condition: 'All',
     search: '',
   });
+
+  useEffect(() => {
+    const nextGenre = searchParams.get('genre') || 'All';
+    const nextCollection = searchParams.get('collection') || 'all';
+
+    setFilters((current) => {
+      if (current.genre === nextGenre && current.collection === nextCollection) {
+        return current;
+      }
+
+      return {
+        ...current,
+        genre: nextGenre,
+        collection: nextCollection,
+      };
+    });
+  }, [searchParams]);
 
   useEffect(() => {
     const loadBooks = async () => {
@@ -187,12 +255,23 @@ const FeedPage = () => {
   }, []);
 
   useEffect(() => {
+    const nextParams = {};
+
     if (filters.genre && filters.genre !== 'All') {
-      setSearchParams({ genre: filters.genre });
-    } else {
-      setSearchParams({});
+      nextParams.genre = filters.genre;
     }
-  }, [filters.genre, setSearchParams]);
+
+    if (filters.collection && filters.collection !== 'all') {
+      nextParams.collection = filters.collection;
+    }
+
+    const currentParams = searchParams.toString();
+    const nextQuery = new URLSearchParams(nextParams).toString();
+
+    if (currentParams !== nextQuery) {
+      setSearchParams(nextParams);
+    }
+  }, [filters.genre, filters.collection, searchParams, setSearchParams]);
 
   useEffect(() => {
     const handleEscape = (event) => {
@@ -216,6 +295,16 @@ const FeedPage = () => {
   }, [isFilterOpen]);
 
   useEffect(() => {
+    if (DASHBOARD_SLIDES.length <= 1) return undefined;
+
+    const timer = window.setInterval(() => {
+      setActiveSlideIndex((current) => (current + 1) % DASHBOARD_SLIDES.length);
+    }, 4200);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     const syncWishlist = () => {
       setWishlistIds(new Set(readWishlist().map((item) => String(item.id))));
     };
@@ -233,6 +322,7 @@ const FeedPage = () => {
 
     return books.filter((book) => {
       const matchesGenre = filters.genre === 'All' || book.genre.toLowerCase() === filters.genre.toLowerCase();
+      const matchesSelectedCollection = matchesCollection(book, filters.collection);
       const matchesCondition = filters.condition === 'All' || book.condition.toLowerCase() === filters.condition.toLowerCase();
       const matchesQuery =
         !query ||
@@ -241,11 +331,23 @@ const FeedPage = () => {
         book.sellerName.toLowerCase().includes(query) ||
         book.genre.toLowerCase().includes(query);
 
-      return matchesGenre && matchesCondition && matchesPrice(book.price, filters.priceRange) && matchesQuery;
+      return matchesGenre && matchesSelectedCollection && matchesCondition && matchesPrice(book.price, filters.priceRange) && matchesQuery;
     });
   }, [books, filters]);
 
-  const activeFilterCount = Number(filters.genre !== 'All') + Number(filters.priceRange !== 'all') + Number(filters.condition !== 'All') + Number(Boolean(filters.search.trim()));
+  const sortedBooks = useMemo(() => {
+    return [...visibleBooks].sort((left, right) => {
+      const genreComparison = left.genre.localeCompare(right.genre);
+      if (genreComparison !== 0) return genreComparison;
+
+      const titleComparison = left.title.localeCompare(right.title);
+      if (titleComparison !== 0) return titleComparison;
+
+      return left.price - right.price;
+    });
+  }, [visibleBooks]);
+
+  const activeFilterCount = Number(filters.genre !== 'All') + Number(filters.collection !== 'all') + Number(filters.priceRange !== 'all') + Number(filters.condition !== 'All') + Number(Boolean(filters.search.trim()));
 
   const openBook = (book) => {
     navigate(`/marketplace/books/${encodeURIComponent(book.id)}`, {
@@ -261,8 +363,18 @@ const FeedPage = () => {
   };
 
   const resetFilters = () => {
-    setFilters({ genre: 'All', priceRange: 'all', condition: 'All', search: '' });
+    setFilters({ genre: 'All', collection: 'all', priceRange: 'all', condition: 'All', search: '' });
   };
+
+  const goToPreviousSlide = () => {
+    setActiveSlideIndex((current) => (current === 0 ? DASHBOARD_SLIDES.length - 1 : current - 1));
+  };
+
+  const goToNextSlide = () => {
+    setActiveSlideIndex((current) => (current + 1) % DASHBOARD_SLIDES.length);
+  };
+
+  const dashboardSlideShift = (100 / DASHBOARD_SLIDES.length) * activeSlideIndex;
 
   return (
     <div className="marketplace-page">
@@ -279,12 +391,26 @@ const FeedPage = () => {
           <div>
             <p className="marketplace-kicker">Campus marketplace</p>
             <h1 className="marketplace-title">Find the right book, at the right price.</h1>
-            <p className="marketplace-copy">
-              Browse clean student listings with real filters, smooth cards, and a quick detail popup for each book.
-            </p>
           </div>
 
-          <div className="marketplace-actions">
+          <div className="marketplace-search marketplace-header-search">
+            <Search size={18} />
+            <input
+              className="marketplace-search-input"
+              type="text"
+              placeholder="Search title, seller, genre, or description"
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            />
+          </div>
+        </section>
+
+        <section className="marketplace-toolbar glass">
+          <div className="marketplace-toolbar-meta">
+            <div>
+              <span className="marketplace-meta-label">Books shown</span>
+              <strong>{sortedBooks.length}</strong>
+            </div>
             <Link to="/listings/new" className="btn-primary">
               + List a Book
             </Link>
@@ -296,27 +422,46 @@ const FeedPage = () => {
           </div>
         </section>
 
-        <section className="marketplace-toolbar glass">
-          <div className="marketplace-search">
-            <Search size={18} />
-            <input
-              className="marketplace-search-input"
-              type="text"
-              placeholder="Search title, seller, genre, or description"
-              value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-            />
-          </div>
+        <section className="dashboard-carousel">
+          <div className="dashboard-carousel-viewport">
+            <motion.div
+              className="dashboard-carousel-track"
+              animate={{ x: `${-dashboardSlideShift}%` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+              style={{ width: `${DASHBOARD_SLIDES.length * 100}%` }}
+            >
+              {DASHBOARD_SLIDES.map((slide) => (
+                <div key={slide.id} className="dashboard-carousel-slide" style={{ width: `${100 / DASHBOARD_SLIDES.length}%` }}>
+                  <img
+                    src={slide.image}
+                    alt={slide.title}
+                    loading="lazy"
+                    onError={(event) => {
+                      if (event.currentTarget.dataset.fallbackApplied === 'true') return;
+                      event.currentTarget.dataset.fallbackApplied = 'true';
+                      event.currentTarget.src = dashboardFallbackImage;
+                    }}
+                  />
+                </div>
+              ))}
+            </motion.div>
 
-          <div className="marketplace-toolbar-meta">
-            <div>
-              <span className="marketplace-meta-label">Books shown</span>
-              <strong>{visibleBooks.length}</strong>
-            </div>
-            <div>
-              <span className="marketplace-meta-label">Catalog</span>
-              <strong>{usingFallback ? 'Demo preview' : 'Live data'}</strong>
-            </div>
+            <button
+              type="button"
+              className="dashboard-carousel-nav dashboard-carousel-nav-prev"
+              onClick={goToPreviousSlide}
+              aria-label="Previous slide"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              className="dashboard-carousel-nav dashboard-carousel-nav-next"
+              onClick={goToNextSlide}
+              aria-label="Next slide"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
         </section>
 
@@ -336,9 +481,9 @@ const FeedPage = () => {
               </div>
             ))}
           </div>
-        ) : visibleBooks.length > 0 ? (
+        ) : sortedBooks.length > 0 ? (
           <div className="marketplace-grid">
-            {visibleBooks.map((book) => (
+            {sortedBooks.map((book) => (
               <motion.article
                 key={book.id}
                 className="marketplace-card glass"

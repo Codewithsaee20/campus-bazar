@@ -5,17 +5,10 @@ const getSuggestedPrice = (mrp, resaleCount) => {
     : 0;
 
   const floor = normalizedMrp * 0.5;
-  let price = normalizedMrp * 0.8;
 
-  for (let i = 0; i < normalizedResaleCount; i += 1) {
-    price *= 0.95;
-  }
-
-  if (price < floor) {
-    return floor;
-  }
-
-  return Math.round(price);
+  // First listing starts at 20% below MRP. Each completed resale applies an additional 5% deduction.
+  const price = normalizedMrp * 0.8 * (0.95 ** normalizedResaleCount);
+  return Math.round(Math.max(price, floor));
 };
 
 export { getSuggestedPrice };

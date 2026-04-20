@@ -1,45 +1,61 @@
 import mongoose from "mongoose";
 import dns from "node:dns";
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const applyDnsOverrides = () => {
+    const rawDnsServers = process.env.MONGO_DNS_SERVERS;
 
-const connectDB = async () => {
-    const mongoUri = process.env.MONGO_URI;
-
-    if (!mongoUri) {
-        throw new Error("MONGO_URI is missing in .env");
+    if (!rawDnsServers) {
+        return;
     }
 
-    // Some networks block SRV DNS lookups used by mongodb+srv.
-    // Force known public resolvers to improve reliability in development.
-    const dnsServers = (process.env.MONGO_DNS_SERVERS || "8.8.8.8,1.1.1.1")
+    const servers = rawDnsServers
         .split(",")
         .map((server) => server.trim())
         .filter(Boolean);
 
-    if (dnsServers.length > 0) {
-        dns.setServers(dnsServers);
+    if (servers.length === 0) {
+        return;
     }
 
-    const maxAttempts = Number(process.env.DB_CONNECT_RETRIES || 5);
-    const retryDelayMs = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 2000);
+    dns.setServers(servers);
+    console.log(`Using custom DNS servers for MongoDB resolution: ${servers.join(", ")}`);
+};
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        try {
-            await mongoose.connect(mongoUri, {
-                serverSelectionTimeoutMS: 10000,
-            });
-            console.log("Db connected succesfully");
-            return;
-        } catch (error) {
-            console.error(`Error connecting to DB (attempt ${attempt}/${maxAttempts}):`, error?.message || error);
+const connectDB = async () => {
+    try {
+        applyDnsOverrides();
 
-            if (attempt === maxAttempts) {
-                throw error;
-            }
+        const mongoUri = process.env.MONGO_URI;
 
-            await sleep(retryDelayMs);
+        if (!mongoUri) {
+            console.warn('MONGO_URI is not set; starting without a database connection.');
+            return false;
         }
+
+        await mongoose.connect(mongoUri);
+        console.log("Db connected succesfully");
+        return true;
+    } catch (error) {
+        const isSrvDnsError = error?.syscall === "querySrv" && error?.code === "ECONNREFUSED";
+
+        if (isSrvDnsError && process.env.MONGO_URI_DIRECT) {
+            try {
+                console.warn("SRV DNS lookup failed; trying MONGO_URI_DIRECT fallback...");
+                await mongoose.connect(process.env.MONGO_URI_DIRECT);
+                console.log("Db connected successfully using MONGO_URI_DIRECT fallback");
+                return true;
+            } catch (fallbackError) {
+                console.error("Error connecting to DB with MONGO_URI_DIRECT:", fallbackError);
+            }
+        }
+
+        if (isSrvDnsError) {
+            console.error("MongoDB SRV DNS lookup failed. Set MONGO_DNS_SERVERS (for example: 8.8.8.8,1.1.1.1) or use MONGO_URI_DIRECT.");
+        }
+
+        console.error("Error connecting to DB:", error);
+        console.warn('Starting backend without a database connection.');
+        return false;
     }
 };
 

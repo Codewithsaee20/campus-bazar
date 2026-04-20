@@ -1,10 +1,15 @@
 import User from "../models/user.model.js";
 import OTP from "../models/otp.model.js";
+import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import { ApiError } from "../utils/ApiError.js";
 import { isCollegeEmail, getCollegeFromEmail } from "../utils/emailValidator.js";
+import authMemoryStore from "./authMemoryStore.js";
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+const isProduction = process.env.NODE_ENV === "production";
 
 // Configure nodemailer transporter
 const mailTransporter = nodemailer.createTransport({
@@ -14,6 +19,26 @@ const mailTransporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+const isDatabaseReady = () => mongoose.connection.readyState === 1;
+
+const readMemoryUser = (email) => authMemoryStore.users.get(normalizeEmail(email));
+
+const writeMemoryUser = (user) => {
+  authMemoryStore.users.set(normalizeEmail(user.email), user);
+  return user;
+};
+
+const readMemoryOtp = (email) => authMemoryStore.otps.get(normalizeEmail(email));
+
+const writeMemoryOtp = (email, otpRecord) => {
+  authMemoryStore.otps.set(normalizeEmail(email), otpRecord);
+  return otpRecord;
+};
+
+const clearMemoryOtp = (email) => {
+  authMemoryStore.otps.delete(normalizeEmail(email));
+};
 
 // Generate JWT tokens
 const generateTokens = (user) => {
@@ -39,16 +64,41 @@ const generateTokens = (user) => {
 };
 
 const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
-  // Check rate limit — no OTP request within 60 seconds
-  const existingOTP = await OTP.findOne({ email });
-  if (existingOTP) {
-    const secondsElapsed = (Date.now() - existingOTP.createdAt) / 1000;
-    if (secondsElapsed < 60) {
-      throw new ApiError(
-        429,
-        `Please wait ${Math.ceil(60 - secondsElapsed)} seconds before requesting another OTP`,
-        "RATE_LIMIT_EXCEEDED"
-      );
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new ApiError(
+      500,
+      "Email service is not configured. Set EMAIL_USER and EMAIL_PASS in backend env.",
+      "EMAIL_CONFIG_MISSING"
+    );
+  }
+
+  let existingOTP;
+
+  if (!isDatabaseReady()) {
+    existingOTP = readMemoryOtp(normalizedEmail);
+    if (existingOTP) {
+      const secondsElapsed = (Date.now() - existingOTP.createdAt) / 1000;
+      if (secondsElapsed < 60) {
+        throw new ApiError(
+          429,
+          `Please wait ${Math.ceil(60 - secondsElapsed)} seconds before requesting another OTP`,
+          "RATE_LIMIT_EXCEEDED"
+        );
+      }
+    }
+  } else {
+    existingOTP = await OTP.findOne({ email: normalizedEmail });
+    if (existingOTP) {
+      const secondsElapsed = (Date.now() - existingOTP.createdAt) / 1000;
+      if (secondsElapsed < 60) {
+        throw new ApiError(
+          429,
+          `Please wait ${Math.ceil(60 - secondsElapsed)} seconds before requesting another OTP`,
+          "RATE_LIMIT_EXCEEDED"
+        );
+      }
     }
   }
 
@@ -59,13 +109,22 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
   const hashedOTP = await bcrypt.hash(otp, 10);
 
   // Save to OTP model
-  await OTP.createOTP(email, hashedOTP);
+  if (isDatabaseReady()) {
+    await OTP.createOTP(normalizedEmail, hashedOTP);
+  } else {
+    writeMemoryOtp(normalizedEmail, {
+      email: normalizedEmail,
+      otp: hashedOTP,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      createdAt: new Date(),
+    });
+  }
 
   // Send via nodemailer
   try {
     await mailTransporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: email,
+      to: normalizedEmail,
       subject,
       html: `
         <h2>Welcome to CampusBazar!</h2>
@@ -76,6 +135,16 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
       `,
     });
   } catch (error) {
+    console.error("OTP email send failed:", error?.message || error);
+
+    if (!isProduction) {
+      console.warn(`DEV OTP FALLBACK for ${normalizedEmail}: ${otp}`);
+      return {
+        message: "Email delivery failed; using development OTP fallback.",
+        devOtp: otp,
+      };
+    }
+
     throw new ApiError(500, "Failed to send OTP email", "EMAIL_SEND_ERROR");
   }
 
@@ -84,8 +153,10 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
 
 // Register new user and send OTP for verification
 const registerUser = async (name, email, phone, department, branch) => {
+  const normalizedEmail = normalizeEmail(email);
+
   // Validate college email
-  if (!isCollegeEmail(email)) {
+  if (!isCollegeEmail(normalizedEmail)) {
     throw new ApiError(
       400,
       "Only registered college emails are allowed",
@@ -93,29 +164,49 @@ const registerUser = async (name, email, phone, department, branch) => {
     );
   }
 
-  const existingUser = await User.findOne({ email });
+  const existingUser = isDatabaseReady() ? await User.findOne({ email: normalizedEmail }) : null;
   if (existingUser) {
     throw new ApiError(400, "Account already exists, please login");
   }
 
-  await User.create({
+  if (!isDatabaseReady()) {
+    const memoryUser = readMemoryUser(normalizedEmail);
+    if (memoryUser) {
+      throw new ApiError(400, "Account already exists, please login");
+    }
+  }
+
+  const userData = {
     name,
-    email,
+    email: normalizedEmail,
     phone,
     department,
     branch,
-    college: getCollegeFromEmail(email),
+    college: getCollegeFromEmail(normalizedEmail),
     role: "user",
     isVerified: false,
-  });
+  };
 
-  return createAndSendOTP(email, "CampusBazar - Verify your registration OTP");
+  if (isDatabaseReady()) {
+    await User.create(userData);
+  } else {
+    writeMemoryUser({
+      ...userData,
+      _id: `memory-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      refreshToken: null,
+      profilePic: undefined,
+    });
+  }
+
+  return createAndSendOTP(normalizedEmail, "CampusBazar - Verify your registration OTP");
 };
 
 // Send OTP for login
 const sendOTP = async (email) => {
+  const normalizedEmail = normalizeEmail(email);
+
   // Validate college email
-  if (!isCollegeEmail(email)) {
+  if (!isCollegeEmail(normalizedEmail)) {
     throw new ApiError(
       400,
       "Only registered college emails are allowed",
@@ -123,22 +214,41 @@ const sendOTP = async (email) => {
     );
   }
 
-  const user = await User.findOne({ email });
-  if (!user) {
-    throw new ApiError(400, "No account found, please register first");
+  if (isDatabaseReady()) {
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new ApiError(400, "No account found, please register first");
+    }
+
+    return createAndSendOTP(normalizedEmail, "CampusBazar - Your login OTP");
   }
 
-  if (!user.isVerified) {
-    throw new ApiError(400, "Please complete registration by verifying your OTP");
+  const memoryUser = readMemoryUser(normalizedEmail);
+  if (!memoryUser) {
+    writeMemoryUser({
+      _id: `memory-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: normalizedEmail.split('@')[0],
+      email: normalizedEmail,
+      phone: '',
+      department: '',
+      branch: '',
+      college: getCollegeFromEmail(normalizedEmail),
+      role: 'user',
+      isVerified: false,
+      refreshToken: null,
+      profilePic: undefined,
+    });
   }
 
-  return createAndSendOTP(email, "CampusBazar - Your login OTP");
+  return createAndSendOTP(normalizedEmail, "CampusBazar - Your login OTP");
 };
 
 // Verify OTP and authenticate user
 const verifyOTP = async (email, otp) => {
+  const normalizedEmail = normalizeEmail(email);
+
   // Validate college email
-  if (!isCollegeEmail(email)) {
+  if (!isCollegeEmail(normalizedEmail)) {
     throw new ApiError(
       400,
       "Only registered college emails are allowed",
@@ -147,14 +257,18 @@ const verifyOTP = async (email, otp) => {
   }
 
   // Find OTP record
-  const otpRecord = await OTP.findOne({ email });
+  const otpRecord = isDatabaseReady() ? await OTP.findOne({ email: normalizedEmail }) : readMemoryOtp(normalizedEmail);
   if (!otpRecord) {
     throw new ApiError(400, "OTP not found or expired");
   }
 
   // Check if OTP is expired
   if (new Date() > otpRecord.expiresAt) {
-    await OTP.deleteOne({ email });
+    if (isDatabaseReady()) {
+      await OTP.deleteOne({ email: normalizedEmail });
+    } else {
+      clearMemoryOtp(normalizedEmail);
+    }
     throw new ApiError(400, "OTP has expired");
   }
 
@@ -164,7 +278,7 @@ const verifyOTP = async (email, otp) => {
     throw new ApiError(400, "Invalid OTP");
   }
 
-  const user = await User.findOne({ email });
+  const user = isDatabaseReady() ? await User.findOne({ email: normalizedEmail }) : readMemoryUser(normalizedEmail);
   if (!user) {
     throw new ApiError(400, "No account found, please register first");
   }
@@ -174,12 +288,15 @@ const verifyOTP = async (email, otp) => {
   // Generate tokens
   const { accessToken, refreshToken } = generateTokens(user);
 
-  // Save refreshToken to user
-  user.refreshToken = refreshToken;
-  await user.save({ validateBeforeSave: false });
-
-  // Delete OTP record after successful verification
-  await OTP.deleteOne({ email });
+  if (isDatabaseReady()) {
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+    await OTP.deleteOne({ email: normalizedEmail });
+  } else {
+    user.refreshToken = refreshToken;
+    writeMemoryUser(user);
+    clearMemoryOtp(normalizedEmail);
+  }
 
   return {
     user: {
@@ -200,7 +317,17 @@ const verifyOTP = async (email, otp) => {
 };
 
 const logoutUser = async (userId) => {
-  await User.findByIdAndUpdate(userId, { refreshToken: null });
+  if (isDatabaseReady()) {
+    await User.findByIdAndUpdate(userId, { refreshToken: null });
+    return;
+  }
+
+  for (const [email, user] of authMemoryStore.users.entries()) {
+    if (user._id === userId) {
+      authMemoryStore.users.set(email, { ...user, refreshToken: null });
+      break;
+    }
+  }
 };
 
 const refreshUserAccessToken = async (incomingRefreshToken) => {
@@ -215,16 +342,35 @@ const refreshUserAccessToken = async (incomingRefreshToken) => {
     throw new ApiError(401, "Invalid refresh token");
   }
 
-  const user = await User.findById(decoded._id);
-  if (!user || user.refreshToken !== incomingRefreshToken) {
+  if (isDatabaseReady()) {
+    const user = await User.findById(decoded._id);
+    if (!user || user.refreshToken !== incomingRefreshToken) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+
+    const accessToken = jwt.sign(
+      {
+        _id: user._id,
+        college: user.college,
+        role: user.role,
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    return { accessToken };
+  }
+
+  const memoryUser = [...authMemoryStore.users.values()].find((item) => String(item._id) === String(decoded._id));
+  if (!memoryUser || memoryUser.refreshToken !== incomingRefreshToken) {
     throw new ApiError(401, "Invalid refresh token");
   }
 
   const accessToken = jwt.sign(
     {
-      _id: user._id,
-      college: user.college,
-      role: user.role,
+      _id: memoryUser._id,
+      college: memoryUser.college,
+      role: memoryUser.role,
     },
     process.env.ACCESS_TOKEN_SECRET,
     { expiresIn: "15m" }
@@ -234,6 +380,28 @@ const refreshUserAccessToken = async (incomingRefreshToken) => {
 };
 
 const getProfileById = async (userId) => {
+  if (!isDatabaseReady()) {
+    const memoryUser = [...authMemoryStore.users.values()].find((item) => item._id === userId);
+    if (!memoryUser) {
+      throw new ApiError(404, "User not found");
+    }
+
+    return {
+      _id: memoryUser._id,
+      name: memoryUser.name,
+      email: memoryUser.email,
+      phone: memoryUser.phone,
+      department: memoryUser.department,
+      branch: memoryUser.branch,
+      college: memoryUser.college,
+      profilePic: memoryUser.profilePic,
+      role: memoryUser.role,
+      isVerified: memoryUser.isVerified,
+      joinedAt: memoryUser.createdAt,
+      updatedAt: memoryUser.updatedAt,
+    };
+  }
+
   const user = await User.findById(userId).select(
     "_id name email phone department branch college profilePic role isVerified createdAt updatedAt"
   );
