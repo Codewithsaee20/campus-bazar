@@ -1,16 +1,22 @@
-import 'dotenv/config'; // ✅ this works correctly with ES modules
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-import app from './src/app.js';
-import connectDB from './src/config/dbconnection.js';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, 'src', '.env') });
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const [{ default: app }, { default: connectDB }] = await Promise.all([
+    import('./src/app.js'),
+    import('./src/config/dbconnection.js'),
+]);
 
 const PORT = process.env.PORT || 3000;
 
-connectDB()
-    .then(() => {
-        app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
-        });
-    })
-    .catch((err) => {
-        console.error("Failed to connect to the database", err);
-    });
+await connectDB();
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});

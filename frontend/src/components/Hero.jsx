@@ -1,64 +1,70 @@
 import React from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { ArrowRight, BookOpen, Sparkles, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import ThreeScene from './ThreeScene';
+import { mockBooks } from '../data/mockBooks';
 
 const Hero = () => {
-  const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
-  const y2 = useTransform(scrollY, [0, 1000], [0, 400]);
+  const spotlightBooks = mockBooks.slice(0, 3);
 
   return (
-    <section 
-      style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        paddingTop: '80px',
-        position: 'relative',
-      }}
-    >
+    <section className="landing-section landing-hero-section">
       <div className="container">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '4rem', alignItems: 'center' }}>
-          
-          <motion.div 
-            style={{ y: y1 }}
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, ease: 'easeOut' }}
+        <div className="landing-hero-grid">
+          <motion.div
+            className="landing-hero-copy"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
           >
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              transition={{ delay: 0.5, duration: 1 }}
-              style={{ display: 'inline-block', padding: '0.25rem 1rem', background: 'rgba(0, 245, 255, 0.1)', border: '1px solid rgba(0, 245, 255, 0.3)', borderRadius: '50px', color: '#00f5ff', fontWeight: 600, marginBottom: '1.5rem', fontSize: '0.875rem' }}
-            >
-              🔒 Closed-Loop Campus Network
-            </motion.div>
-            <h1 style={{ fontSize: 'clamp(3rem, 6vw, 5rem)', fontWeight: 900, lineHeight: 1.1, marginBottom: '1.5rem', letterSpacing: '-2px' }}>
-              Exclusive & <br/>
-              <span className="text-gradient">Verified</span> <br/>
-              Trading
-            </h1>
-            <p style={{ fontSize: '1.25rem', color: '#a0a0c0', marginBottom: '2.5rem', maxWidth: '500px' }}>
-              The ultimate closed-loop marketplace restricted to your college. Buy and sell secondhand books, past papers, and premium notes safely with verified peers.
+            <div className="landing-section-eyebrow">
+              <Sparkles size={16} />
+              Campus marketplace for verified students
+            </div>
+
+            <h1>Campus Bazaar</h1>
+            <p className="landing-hero-tagline">
+              Buy and sell books with a clean student marketplace built for fast listings, fair prices, and simple discovery.
             </p>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <Link to="/login" className="btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', textDecoration: 'none' }}>
-                Unified Login
+            <p className="landing-hero-subcopy">
+              Browse featured books, compare conditions instantly, and move from login to listing in a few smooth steps.
+            </p>
+
+            <div className="landing-hero-actions">
+              <Link to="/login" className="btn-primary landing-hero-button">
+                <Users size={16} />
+                Login
               </Link>
+              <a href="#featured-books" className="landing-secondary-button">
+                <BookOpen size={16} />
+                Explore
+                <ArrowRight size={16} />
+              </a>
             </div>
           </motion.div>
 
-          <motion.div 
-            style={{ y: y2 }}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.2, ease: 'easeOut', delay: 0.2 }}
+          <motion.div
+            className="landing-hero-showcase glass"
+            initial={{ opacity: 0, scale: 0.96, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.85, ease: 'easeOut', delay: 0.1 }}
           >
-            <ThreeScene />
+            <div className="landing-hero-showcase-header">
+              <span>Live campus picks</span>
+              <strong>Featured now</strong>
+            </div>
+            <div className="landing-hero-book-stack">
+              {spotlightBooks.map((book, index) => (
+                <div key={book.id} className="landing-hero-book-card" style={{ '--offset': index }}>
+                  <img src={book.image} alt={book.title} />
+                  <div>
+                    <strong>{book.title}</strong>
+                    <span>{book.category}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
-
         </div>
       </div>
     </section>

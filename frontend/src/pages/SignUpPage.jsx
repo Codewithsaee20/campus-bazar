@@ -1,243 +1,362 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/useAuthStore';
+import React, { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import ParticleField from '../components/ParticleField';
+
+const initialForm = {
+  name: '',
+  email: '',
+  phone: '',
+  department: '',
+  branch: '',
+};
+
+const validators = {
+  email: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+  phone: (value) => /^\+?[0-9]{10,15}$/.test(value),
+};
 
 const SignUpPage = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    department: '',
-    branch: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
+  const [form, setForm] = useState(initialForm);
+  const [touched, setTouched] = useState({});
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [backendError, setBackendError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const trimmedValues = useMemo(
+    () => ({
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      department: form.department.trim(),
+      branch: form.branch.trim(),
+    }),
+    [form]
+  );
 
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  const validate = (values) => {
+    const nextErrors = {};
+
+    if (!values.name) nextErrors.name = 'Full name is required.';
+    if (!values.email) nextErrors.email = 'College email is required.';
+    else if (!validators.email(values.email)) nextErrors.email = 'Enter a valid email address.';
+
+    if (!values.phone) nextErrors.phone = 'WhatsApp number is required.';
+    else if (!validators.phone(values.phone)) nextErrors.phone = 'Use 10 to 15 digits with optional + prefix.';
+
+    if (!values.department) nextErrors.department = 'Department is required.';
+    if (!values.branch) nextErrors.branch = 'Branch is required.';
+
+    return nextErrors;
+  };
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
+
+    setErrors((previous) => {
+      if (!previous[name]) return previous;
+      const next = { ...previous };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const handleBlur = (event) => {
+    const { name } = event.target;
+    setTouched((previous) => ({ ...previous, [name]: true }));
+
+    const nextErrors = validate(trimmedValues);
+    setErrors((previous) => ({ ...previous, [name]: nextErrors[name] }));
+  };
+
+  const showFieldError = (field) => touched[field] && errors[field];
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setBackendError('');
+    setSuccessMessage('');
+
+    const nextErrors = validate(trimmedValues);
+    setErrors(nextErrors);
+    setTouched({ name: true, email: true, phone: true, department: true, branch: true });
+
+    if (Object.keys(nextErrors).length > 0) return;
+
     try {
-      await api.post('/auth/register', formData);
-      navigate('/login');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Backend not connected. Use "Demo Mode" below to explore the app.');
+      setLoading(true);
+      const response = await api.post('/auth/register', {
+        name: trimmedValues.name,
+        email: trimmedValues.email,
+        phone: trimmedValues.phone,
+        department: trimmedValues.department,
+        branch: trimmedValues.branch,
+      });
+
+      const responseEmail = response?.data?.data?.email || trimmedValues.email;
+      setSuccessMessage('OTP sent to your email');
+
+      window.setTimeout(() => {
+        navigate(`/verify-otp?email=${encodeURIComponent(responseEmail)}`, {
+          state: { identifier: responseEmail, email: responseEmail },
+        });
+      }, 700);
+    } catch (error) {
+      setBackendError(error?.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoSignUp = () => {
-    setAuth(
-      { id: 'demo-001', name: 'Minesh Patel', email: 'minesh.patel@gtu.edu', college: 'Gujarat Technological University', role: 'user' },
-      'demo-token-123'
-    );
-    navigate('/marketplace');
-  };
+  const fields = [
+    {
+      label: 'Full Name',
+      name: 'name',
+      type: 'text',
+      placeholder: 'Enter your full name',
+      autoComplete: 'name',
+    },
+    {
+      label: 'College Email',
+      name: 'email',
+      type: 'email',
+      placeholder: 'name@college.edu',
+      autoComplete: 'email',
+    },
+    {
+      label: 'WhatsApp Number',
+      name: 'phone',
+      type: 'tel',
+      placeholder: '+919876543210',
+      autoComplete: 'tel',
+    },
+    {
+      label: 'Department',
+      name: 'department',
+      type: 'text',
+      placeholder: 'Computer Science',
+      autoComplete: 'organization-title',
+    },
+    {
+      label: 'Branch',
+      name: 'branch',
+      type: 'text',
+      placeholder: 'AI & ML',
+      autoComplete: 'off',
+    },
+  ];
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '4rem 1rem',
-      position: 'relative',
-    }}>
-      <div className="aurora-bg">
-        <div className="aurora-blob cyan" />
-        <div className="aurora-blob violet" />
-        <div className="aurora-blob pink" />
-      </div>
-      <ParticleField />
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f7f6ff 50%, #fdf7fb 100%)',
+        display: 'grid',
+        placeItems: 'center',
+        padding: '1rem',
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="glass"
+        style={{
+          width: '100%',
+          maxWidth: '560px',
+          padding: '2rem',
+          borderRadius: '24px',
+          background: 'rgba(255,255,255,0.92)',
+          border: '1px solid rgba(139, 92, 246, 0.12)',
+          boxShadow: '0 24px 60px rgba(15, 23, 42, 0.10)',
+          color: 'var(--text-main)',
+        }}
+      >
+        <div
+          style={{
+            height: '4px',
+            width: '72px',
+            borderRadius: '999px',
+            background: 'linear-gradient(90deg, var(--color-violet), var(--color-pink))',
+            marginBottom: '1.25rem',
+          }}
+        />
 
-      <div className="glass" style={{
-        maxWidth: '520px',
-        width: '100%',
-        padding: '3.5rem 3rem',
-        borderRadius: '32px',
-        position: 'relative',
-        zIndex: 10,
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), var(--glass-shine)'
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '60px',
-            height: '60px',
-            borderRadius: '20px',
-            background: 'linear-gradient(135deg, var(--color-pink), var(--color-violet))',
-            marginBottom: '1.5rem',
-            fontSize: '1.5rem',
-            boxShadow: '0 10px 20px rgba(236, 72, 153, 0.3)',
-            transform: 'rotate(5deg)'
-          }}>
-            🎓
-          </div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-1.5px', color: '#fff' }}>Join the Squad</h1>
-          <p style={{ color: 'var(--text-dim)', fontSize: '1.05rem', fontWeight: 500 }}>Create your profile to start trading</p>
-        </div>
+        <h1 style={{ fontSize: '2rem', lineHeight: 1.1, marginBottom: '0.5rem', fontWeight: 800 }}>
+          Create your account
+        </h1>
+        <p style={{ color: 'var(--text-dim)', marginBottom: '1.5rem' }}>
+          Join your campus marketplace with a verified college profile.
+        </p>
 
-        {/* Error */}
-        {error && (
-          <div style={{
-            background: 'rgba(236, 72, 153, 0.08)',
-            border: '1px solid rgba(236, 72, 153, 0.2)',
-            color: '#f472b6',
-            padding: '0.85rem 1.25rem',
-            borderRadius: '16px',
-            marginBottom: '2rem',
-            fontSize: '0.85rem',
-            textAlign: 'center',
-            fontWeight: 600,
-            lineHeight: 1.4
-          }}>
-            {error}
+        {successMessage && (
+          <div
+            style={{
+              marginBottom: '1rem',
+              padding: '0.85rem 1rem',
+              borderRadius: '14px',
+              background: 'rgba(34, 197, 94, 0.10)',
+              color: '#15803d',
+              border: '1px solid rgba(34, 197, 94, 0.20)',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+            }}
+          >
+            {successMessage}
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Full Name</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="Minesh Patel"
-                className="form-input"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Email Address</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="name@gtu.edu"
-                className="form-input"
-              />
-            </div>
+        {backendError && (
+          <div
+            style={{
+              marginBottom: '1rem',
+              padding: '0.85rem 1rem',
+              borderRadius: '14px',
+              background: 'rgba(239, 68, 68, 0.08)',
+              color: '#b91c1c',
+              border: '1px solid rgba(239, 68, 68, 0.18)',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+            }}
+          >
+            {backendError}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
+          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {fields.slice(0, 2).map((field) => (
+              <div key={field.name} style={{ display: 'grid', gap: '0.45rem' }}>
+                <label htmlFor={field.name} style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  {field.label}
+                </label>
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type={field.type}
+                  value={form[field.name]}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder={field.placeholder}
+                  autoComplete={field.autoComplete}
+                  className="form-input signup-input"
+                  disabled={loading}
+                  style={{
+                    background: '#ffffff',
+                    border: showFieldError(field.name)
+                      ? '1px solid rgba(239, 68, 68, 0.55)'
+                      : '1px solid rgba(148, 163, 184, 0.25)',
+                    color: 'var(--text-main)',
+                    transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
+                  }}
+                />
+                {showFieldError(field.name) && (
+                  <span style={{ color: '#b91c1c', fontSize: '0.82rem', fontWeight: 500 }}>{errors[field.name]}</span>
+                )}
+              </div>
+            ))}
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Phone Number (WhatsApp)</label>
+          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {fields.slice(2, 4).map((field) => (
+              <div key={field.name} style={{ display: 'grid', gap: '0.45rem' }}>
+                <label htmlFor={field.name} style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  {field.label}
+                </label>
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type={field.type}
+                  value={form[field.name]}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder={field.placeholder}
+                  autoComplete={field.autoComplete}
+                  className="form-input signup-input"
+                  disabled={loading}
+                  style={{
+                    background: '#ffffff',
+                    border: showFieldError(field.name)
+                      ? '1px solid rgba(239, 68, 68, 0.55)'
+                      : '1px solid rgba(148, 163, 184, 0.25)',
+                    color: 'var(--text-main)',
+                    transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
+                  }}
+                />
+                {showFieldError(field.name) && (
+                  <span style={{ color: '#b91c1c', fontSize: '0.82rem', fontWeight: 500 }}>{errors[field.name]}</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gap: '0.45rem' }}>
+            <label htmlFor="branch" style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+              Branch
+            </label>
             <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              required
-              placeholder="Ex: 9876543210"
-              className="form-input"
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Department</label>
-              <input
-                type="text"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                required
-                placeholder="Ex: Engineering"
-                className="form-input"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Branch</label>
-              <input
-                type="text"
-                name="branch"
-                value={formData.branch}
-                onChange={handleChange}
-                required
-                placeholder="Ex: Computer Science"
-                className="form-input"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>College / University</label>
-            <input
+              id="branch"
+              name="branch"
               type="text"
-              disabled
-              placeholder="Auto-detected from college email"
-              className="form-input"
+              value={form.branch}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              placeholder="AI & ML"
+              autoComplete="off"
+              className="form-input signup-input"
+              disabled={loading}
+              style={{
+                background: '#ffffff',
+                border: showFieldError('branch')
+                  ? '1px solid rgba(239, 68, 68, 0.55)'
+                  : '1px solid rgba(148, 163, 184, 0.25)',
+                color: 'var(--text-main)',
+                transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
+              }}
             />
+            {showFieldError('branch') && (
+              <span style={{ color: '#b91c1c', fontSize: '0.82rem', fontWeight: 500 }}>{errors.branch}</span>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading}
             className="btn-primary"
+            disabled={loading}
             style={{
               width: '100%',
-              padding: '1.1rem',
-              fontSize: '1.05rem',
+              padding: '1rem 1.25rem',
+              borderRadius: '14px',
+              fontSize: '1rem',
               fontWeight: 800,
-              marginTop: '0.5rem',
-              opacity: loading ? 0.6 : 1,
+              boxShadow: '0 18px 30px rgba(139, 92, 246, 0.20)',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+            onMouseEnter={(event) => {
+              if (loading) return;
+              event.currentTarget.style.transform = 'translateY(-1px)';
+              event.currentTarget.style.boxShadow = '0 22px 34px rgba(236, 72, 153, 0.20)';
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.transform = 'translateY(0)';
+              event.currentTarget.style.boxShadow = '0 18px 30px rgba(139, 92, 246, 0.20)';
             }}
           >
-            {loading ? 'Creating Profile...' : 'Begin Journey'}
+            {loading ? 'Creating account...' : 'Send OTP'}
           </button>
         </form>
 
-        {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', margin: '2.25rem 0' }}>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>or</span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-        </div>
-
-        {/* Demo Mode */}
-        <button
-          onClick={handleDemoSignUp}
-          className="interactive-card"
-          style={{
-            width: '100%',
-            padding: '1rem',
-            fontSize: '0.95rem',
-            fontWeight: 800,
-            borderRadius: '16px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            background: 'rgba(255,255,255,0.03)',
-            color: 'var(--color-cyan)',
-            cursor: 'pointer',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-          onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.borderColor = 'rgba(6,182,212,0.3)'; }}
-          onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.03)'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-        >
-          🚀 Continue in Demo Mode
-        </button>
-
-        <p style={{ textAlign: 'center', marginTop: '2.5rem', color: 'var(--text-dim)', fontSize: '0.95rem', fontWeight: 500 }}>
-          Already part of the campus?{' '}
-          <Link to="/login" style={{ color: 'var(--color-pink)', fontWeight: 800, textDecoration: 'none' }}>
-            Sign In
-          </Link>
+        <p style={{ marginTop: '1.25rem', color: 'var(--text-dim)', fontSize: '0.95rem' }}>
+          Already registered?{' '}
+          <a href="/login" style={{ color: 'var(--color-violet)', fontWeight: 700, textDecoration: 'none' }}>
+            Login with OTP
+          </a>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 };

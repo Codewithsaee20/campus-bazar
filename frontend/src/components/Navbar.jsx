@@ -1,98 +1,244 @@
-import React, { useState, useEffect } from 'react';
-import { motion, useScroll } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useScroll } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
+import { ChevronRight, Menu, ShoppingCart, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
-import { User, LogOut } from 'lucide-react';
+import { campusCategorySections } from '../data/campusCategories';
+import { useCartStore } from '../store/useCartStore';
 
 const Navbar = () => {
   const { scrollY } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
-  const { isAuthenticated, logout, user } = useAuthStore();
+  const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
+  const [brandLogoSrc, setBrandLogoSrc] = useState('/logo.png');
+  const { isAuthenticated, user } = useAuthStore();
+  const cartItemCount = useCartStore((state) =>
+    state.items.reduce((total, item) => total + (Number(item.quantity) || 1), 0)
+  );
+  const location = useLocation();
 
   useEffect(() => {
     const updateScroll = () => {
       setIsScrolled(scrollY.get() > 50);
     };
+
     const unsubscribe = scrollY.on('change', updateScroll);
     return () => unsubscribe();
   }, [scrollY]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsCategoryDrawerOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    setIsCategoryDrawerOpen(false);
+  }, [location.pathname, location.search]);
+
+  const navItems = useMemo(() => {
+    if (!isAuthenticated) {
+      return [
+        { label: 'Marketplace', to: '/marketplace' },
+        { label: 'Login', to: '/auth/phone' },
+        { label: 'Sign Up', to: '/signup' },
+      ];
+    }
+
+    return [
+      { label: 'Marketplace', to: '/marketplace' },
+      { label: 'Sell Book', to: '/listings/new' },
+      { label: 'Order Requests', to: '/orders/requests' },
+      { label: 'My Listings', to: '/my-listings' },
+    ];
+  }, [isAuthenticated]);
+
+  const isActiveRoute = (to) => {
+    if (to === '/marketplace') {
+      return location.pathname === '/marketplace' || location.pathname === '/browse' || location.pathname === '/feed';
+    }
+
+    return location.pathname === to || location.pathname.startsWith(`${to}/`);
+  };
+
+  const userInitial = (user?.name || 'Profile').trim().charAt(0).toUpperCase() || 'U';
+
+  const buildCategoryTo = (item) => {
+    const params = new URLSearchParams(item.query || {});
+    const queryString = params.toString();
+    return queryString ? `${item.to}?${queryString}` : item.to;
+  };
+
+  const isCategoryActive = (item) => {
+    if (location.pathname !== item.to) return false;
+
+    const params = new URLSearchParams(location.search);
+    const expected = new URLSearchParams(item.query || {});
+    return params.toString() === expected.toString();
+  };
+
+  const closeDrawer = () => setIsCategoryDrawerOpen(false);
+
   return (
     <motion.nav
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 50,
-        padding: isScrolled ? '1rem 0' : '2rem 1rem',
-        transition: 'padding 0.3s ease',
-      }}
+      className="cb-navbar"
+      data-scrolled={isScrolled ? 'true' : 'false'}
     >
-      <div 
-        className="container" 
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: isScrolled ? 'rgba(10, 10, 18, 0.7)' : 'rgba(255, 255, 255, 0.02)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '24px',
-          padding: '0.8rem 2.5rem',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: isScrolled ? '0 20px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255,255,255,0.05)' : 'none'
-        }}
+      <div
+        className="cb-navbar-shell"
+        data-scrolled={isScrolled ? 'true' : 'false'}
       >
-        <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, letterSpacing: '-1.5px', color: '#fff' }}>
-            Campus<span className="text-gradient" style={{ filter: 'brightness(1.2)' }}>Bazar</span>
-          </div>
-        </Link>
-        <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'center' }}>
-          {isAuthenticated ? (
-            /* ── Logged-in nav: Dashboard links ── */
-            <>
-              {['Browse', 'Sell', 'Cart'].map((label) => (
-                <Link key={label} to={`/${label.toLowerCase()}`} style={{ 
-                  color: 'var(--text-dim)', textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', 
-                  textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' 
-                }} onMouseEnter={(e) => { e.target.style.color = '#fff'; e.target.style.transform = 'translateY(-1px)'; }} 
-                   onMouseLeave={(e) => { e.target.style.color = 'var(--text-dim)'; e.target.style.transform = 'translateY(0)'; }}>
-                  {label}
-                </Link>
-              ))}
-              <Link to="/profile" className="glass interactive-card" style={{ 
-                padding: '0.5rem 1.25rem', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '0.75rem', 
-                textDecoration: 'none', color: '#fff', fontWeight: 700, fontSize: '0.9rem',
-                border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)'
-              }}>
-                <div style={{ width: '24px', height: '24px', borderRadius: '8px', background: 'var(--gradient-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>
-                  {user?.name?.charAt(0)}
-                </div>
-                {user?.name?.split(' ')[0]}
-              </Link>
-              <button onClick={logout} style={{ 
-                background: 'rgba(236, 72, 153, 0.1)', border: '1px solid rgba(236, 72, 153, 0.2)', 
-                color: 'var(--color-pink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '36px', height: '36px', borderRadius: '12px', transition: 'all 0.2s' 
-              }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(236, 72, 153, 0.15)'; e.currentTarget.style.transform = 'scale(1.05)'; }} 
-                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(236, 72, 153, 0.1)'; e.currentTarget.style.transform = 'scale(1)'; }}>
-                <LogOut size={16} />
-              </button>
-            </>
+        <div className="cb-brand-group">
+          <button
+            type="button"
+            className="cb-category-toggle"
+            aria-label={isCategoryDrawerOpen ? 'Close category menu' : 'Open category menu'}
+            aria-expanded={isCategoryDrawerOpen}
+            onClick={() => setIsCategoryDrawerOpen((previous) => !previous)}
+          >
+            {isCategoryDrawerOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+
+          <Link to={isAuthenticated ? '/marketplace' : '/'} className="cb-brand-link" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <img
+              src={brandLogoSrc}
+              alt="Campus Bazaar logo"
+              className="cb-brand-logo"
+              onError={() => {
+                if (brandLogoSrc !== '/favicon.svg') {
+                  setBrandLogoSrc('/favicon.svg');
+                }
+              }}
+            />
+            <div className="cb-brand">
+              Campus <span className="text-gradient" style={{ filter: 'brightness(1.05)' }}>Bazaar</span>
+            </div>
+          </Link>
+        </div>
+
+        <div className="cb-nav-desktop" style={{ gap: '0.5rem' }}>
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className={`cb-nav-item ${isActiveRoute(item.to) ? 'active' : ''}`}
+              onClick={closeDrawer}
+            >
+              {item.label}
+            </Link>
+          ))}
+
+          <Link
+            to="/cart"
+            className={`cb-cart-link ${location.pathname === '/cart' ? 'active' : ''}`}
+            onClick={closeDrawer}
+            aria-label="Open cart"
+            title="Open cart"
+          >
+            <ShoppingCart size={18} />
+            <span className="cb-cart-label">Cart</span>
+            {cartItemCount > 0 ? <span className="cb-cart-badge">{cartItemCount}</span> : null}
+          </Link>
+
+          {!isAuthenticated ? (
+            <Link to="/signup" className="btn-primary cb-nav-cta" onClick={closeDrawer}>
+              Get Started
+            </Link>
           ) : (
-            /* ── Guest nav: Landing page links ── */
-            <>
-              <Link to="/marketplace" style={{ color: 'var(--text-dim)', textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Marketplace</Link>
-              <a href="/#stats" style={{ color: 'var(--text-dim)', textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Impact</a>
-              <Link to="/login" className="btn-primary" style={{ padding: '0.75rem 1.75rem', fontSize: '0.9rem', fontWeight: 800 }}>
-                Get Started
-              </Link>
-            </>
+            <Link
+              to="/profile"
+              className="glass interactive-card cb-nav-item cb-user-trigger"
+              onClick={closeDrawer}
+              aria-label="Open profile"
+              style={{ minWidth: '44px', justifyContent: 'center', padding: '0.55rem' }}
+            >
+              <div className="cb-user-avatar">{userInitial}</div>
+            </Link>
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isCategoryDrawerOpen ? (
+          <>
+            <motion.div
+              className="cb-category-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeDrawer}
+            />
+
+            <motion.aside
+              className="cb-category-drawer glass"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+            >
+              <div className="cb-category-drawer-header">
+                <div>
+                  <p className="cb-category-drawer-kicker">Browse campus inventory</p>
+                  <h2>All categories</h2>
+                </div>
+                <button type="button" className="cb-category-close" onClick={closeDrawer} aria-label="Close category menu">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="cb-category-drawer-note">
+                Tap a category to open the marketplace already filtered and sorted for books, notes, and college material.
+              </div>
+
+              {campusCategorySections.map((section) => (
+                <section key={section.title} className="cb-category-section">
+                  <p className="cb-category-section-title">{section.title}</p>
+                  <div className="cb-category-list">
+                    {section.items.map((item) => (
+                      <Link
+                        key={item.label}
+                        to={buildCategoryTo(item)}
+                        className={`cb-category-item ${isCategoryActive(item) ? 'active' : ''}`}
+                        onClick={closeDrawer}
+                      >
+                        <span className="cb-category-item-copy">
+                          <strong>{item.label}</strong>
+                          <span>{item.description}</span>
+                        </span>
+                        <ChevronRight size={17} />
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ))}
+
+              <div className="cb-category-drawer-footer">
+                <Link
+                  to="/cart"
+                  className={`cb-cart-link ${location.pathname === '/cart' ? 'active' : ''}`}
+                  onClick={closeDrawer}
+                  aria-label="Open cart"
+                >
+                  <ShoppingCart size={18} />
+                  <span className="cb-cart-label">Cart</span>
+                  {cartItemCount > 0 ? <span className="cb-cart-badge">{cartItemCount}</span> : null}
+                </Link>
+
+                {navItems.map((item) => (
+                  <Link key={item.label} to={item.to} className={`cb-nav-item ${isActiveRoute(item.to) ? 'active' : ''}`} onClick={closeDrawer}>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </motion.aside>
+          </>
+        ) : null}
+      </AnimatePresence>
     </motion.nav>
   );
 };
