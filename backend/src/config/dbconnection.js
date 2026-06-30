@@ -21,6 +21,22 @@ const applyDnsOverrides = () => {
     console.log(`Using custom DNS servers for MongoDB resolution: ${servers.join(", ")}`);
 };
 
+const getConnectionOptions = () => {
+    const isDevEnvironment = process.env.NODE_ENV !== "production";
+
+    return {
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        family: 4,
+        ...(isDevEnvironment && {
+            retryWrites: true,
+            w: "majority",
+        }),
+    };
+};
+
 const connectDB = async () => {
     try {
         applyDnsOverrides();
@@ -32,16 +48,19 @@ const connectDB = async () => {
             return false;
         }
 
-        await mongoose.connect(mongoUri);
-        console.log("Db connected succesfully");
+        const connectionOptions = getConnectionOptions();
+        await mongoose.connect(mongoUri, connectionOptions);
+        console.log("Db connected successfully");
         return true;
     } catch (error) {
         const isSrvDnsError = error?.syscall === "querySrv" && error?.code === "ECONNREFUSED";
+        const isNetworkError = error?.code === "ENOTFOUND" || error?.message?.includes("getaddrinfo");
 
-        if (isSrvDnsError && process.env.MONGO_URI_DIRECT) {
+        if ((isSrvDnsError || isNetworkError) && process.env.MONGO_URI_DIRECT) {
             try {
-                console.warn("SRV DNS lookup failed; trying MONGO_URI_DIRECT fallback...");
-                await mongoose.connect(process.env.MONGO_URI_DIRECT);
+                console.warn("Network/DNS error detected; trying MONGO_URI_DIRECT fallback...");
+                const connectionOptions = getConnectionOptions();
+                await mongoose.connect(process.env.MONGO_URI_DIRECT, connectionOptions);
                 console.log("Db connected successfully using MONGO_URI_DIRECT fallback");
                 return true;
             } catch (fallbackError) {
@@ -50,10 +69,18 @@ const connectDB = async () => {
         }
 
         if (isSrvDnsError) {
-            console.error("MongoDB SRV DNS lookup failed. Set MONGO_DNS_SERVERS (for example: 8.8.8.8,1.1.1.1) or use MONGO_URI_DIRECT.");
+            console.error("MongoDB SRV DNS lookup failed. Solutions:");
+            console.error("  1. Set MONGO_DNS_SERVERS=8.8.8.8,1.1.1.1");
+            console.error("  2. Use MONGO_URI_DIRECT (direct connection without SRV)");
         }
 
-        console.error("Error connecting to DB:", error);
+        if (isNetworkError) {
+            console.error("Network connectivity error detected. For mobile networks:");
+            console.error("  1. Ensure MongoDB Atlas Network Access allows 0.0.0.0/0");
+            console.error("  2. Or add specific teammate IP via Dashboard → Network Access");
+        }
+
+        console.error("Error connecting to DB:", error?.message);
         console.warn('Starting backend without a database connection.');
         return false;
     }
