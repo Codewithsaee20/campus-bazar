@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, 'src', '.env') });
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, 'src', '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
 const [{ default: app }, { default: connectDB }] = await Promise.all([
     import('./src/app.js'),

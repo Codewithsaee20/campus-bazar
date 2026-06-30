@@ -9,19 +9,12 @@ const MAX_IMAGES = 1;
 
 const emptyForm = {
   title: '',
-  genre: '',
+  categoryId: '',
   description: '',
   price: '',
   condition: 'New',
   contactDetails: '',
 };
-
-const FALLBACK_CATEGORIES = [
-  { id: 'engineering', label: 'Engineering' },
-  { id: 'science', label: 'Science' },
-  { id: 'commerce', label: 'Commerce' },
-  { id: 'arts', label: 'Arts' },
-];
 
 const readLocalListings = () => {
   if (typeof window === 'undefined') return [];
@@ -46,6 +39,9 @@ const ListingFormPage = () => {
   const { id } = useParams();
 
   const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState('');
+  const [categoryReloadKey, setCategoryReloadKey] = useState(0);
   const [form, setForm] = useState(emptyForm);
   const [selectedImage, setSelectedImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -57,33 +53,55 @@ const ListingFormPage = () => {
   const isEditMode = Boolean(id);
 
   useEffect(() => {
+    let isActive = true;
+
     const loadCategories = async () => {
+      setCategoriesLoading(true);
+      setCategoriesError('');
+
       try {
         const response = await categoryApi.getAll();
+        if (!isActive) return;
+
         const categoriesData = unwrapData(response) || [];
         const nextCategories = categoriesData
           .map((category) => {
-            if (!category) return null;
-            if (typeof category === 'string') {
-              return { id: category.toLowerCase(), label: category };
-            }
+            if (!category || typeof category === 'string') return null;
 
-            const id = category?._id || category?.id || category?.slug;
-            const label = category?.name || category?.slug || category?._id;
+            const id = category?._id || category?.id;
+            const label = category?.name || category?.slug;
             if (!id || !label) return null;
 
             return { id: String(id), label: String(label) };
           })
           .filter(Boolean);
 
-        setCategories(nextCategories.length > 0 ? nextCategories : FALLBACK_CATEGORIES);
-      } catch {
-        setCategories(FALLBACK_CATEGORIES);
+        setCategories(nextCategories);
+
+        if (nextCategories.length === 0) {
+          setCategoriesError('No categories found. Restart the backend and try again.');
+        }
+      } catch (error) {
+        if (!isActive) return;
+        setCategories([]);
+        setCategoriesError(
+          error?.response?.data?.message
+            || error?.message
+            || 'Could not load categories.'
+        );
+      } finally {
+        if (isActive) {
+          setCategoriesLoading(false);
+        }
       }
     };
 
     loadCategories();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [categoryReloadKey]);
 
   useEffect(() => {
     if (!selectedImage) {
@@ -103,7 +121,7 @@ const ListingFormPage = () => {
     if (existingListing) {
       setForm({
         title: existingListing.title || '',
-        genre: existingListing.genre || '',
+        categoryId: existingListing.categoryId || '',
         description: existingListing.description || '',
         price: existingListing.price ? String(existingListing.price) : '',
         condition: existingListing.condition || 'New',
@@ -123,13 +141,12 @@ const ListingFormPage = () => {
   const validate = () => {
     const nextErrors = {};
     const title = normalizeText(form.title);
-    const genre = normalizeText(form.genre);
     const description = normalizeText(form.description);
     const contactDetails = normalizeText(form.contactDetails);
     const price = normalizeText(String(form.price));
 
     if (!title) nextErrors.title = 'Book name is required.';
-    if (!genre) nextErrors.genre = 'Genre or type is required.';
+    if (!form.categoryId) nextErrors.categoryId = 'Category is required.';
     if (!description) nextErrors.description = 'Description is required.';
     if (!price) nextErrors.price = 'Price is required.';
     if (price && Number.isNaN(Number(price))) nextErrors.price = 'Price must be numeric.';
@@ -137,21 +154,12 @@ const ListingFormPage = () => {
     if (!contactDetails) nextErrors.contactDetails = 'Contact details are required.';
     if (!selectedImage && !previewUrl) nextErrors.image = 'Book image is required.';
 
-    const selectedCategory = categories.find((category) =>
-      category.label.toLowerCase() === genre.toLowerCase() || category.id.toLowerCase() === genre.toLowerCase()
-    );
-
-    if (!selectedCategory?.id) {
-      nextErrors.genre = 'Please pick a valid category from the list.';
-    }
-
     setErrors(nextErrors);
     return {
       isValid: Object.keys(nextErrors).length === 0,
       normalized: {
         title,
-        genre,
-        categoryId: selectedCategory?.id || '',
+        categoryId: form.categoryId,
         description,
         price: price ? Number(price) : 0,
         contactDetails,
@@ -283,21 +291,39 @@ const ListingFormPage = () => {
 
                 <div className="listing-field-grid">
                   <div className="listing-field">
-                    <label className="listing-label">Genre / Type</label>
-                    <input
+                    <label className="listing-label">Category</label>
+                    <select
                       className="form-input"
-                      list="listing-genres"
-                      value={form.genre}
-                      onChange={(event) => updateField('genre', event.target.value)}
-                      placeholder="Engineering"
+                      value={form.categoryId}
+                      onChange={(event) => updateField('categoryId', event.target.value)}
                       required
-                    />
-                    <datalist id="listing-genres">
-                      {categories.map((genre) => (
-                        <option key={genre.id} value={genre.label} />
+                      disabled={categoriesLoading || categories.length === 0}
+                    >
+                      <option value="" disabled>
+                        {categoriesLoading ? 'Loading categories...' : 'Select a category'}
+                      </option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.label}
+                        </option>
                       ))}
-                    </datalist>
-                    {errors.genre ? <p className="listing-field-error">{errors.genre}</p> : null}
+                    </select>
+                    {categoriesLoading ? (
+                      <p className="listing-help">Loading categories...</p>
+                    ) : null}
+                    {categoriesError ? (
+                      <p className="listing-field-error">
+                        {categoriesError}{' '}
+                        <button
+                          type="button"
+                          className="marketplace-text-button"
+                          onClick={() => setCategoryReloadKey((current) => current + 1)}
+                        >
+                          Retry
+                        </button>
+                      </p>
+                    ) : null}
+                    {errors.categoryId ? <p className="listing-field-error">{errors.categoryId}</p> : null}
                   </div>
 
                   <div className="listing-field">

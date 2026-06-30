@@ -2,11 +2,35 @@ import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { ApiError } from '../utils/ApiError.js';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const PLACEHOLDER_API_KEYS = new Set(['root', 'your_api_key', 'your-api-key']);
+
+const ensureCloudinaryConfig = () => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new ApiError(
+      500,
+      'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in backend/.env.',
+      'CLOUDINARY_CONFIG_MISSING'
+    );
+  }
+
+  if (PLACEHOLDER_API_KEYS.has(String(apiKey).trim().toLowerCase())) {
+    throw new ApiError(
+      500,
+      'Cloudinary API key is still set to a placeholder value. Update CLOUDINARY_API_KEY in backend/.env and remove any CLOUDINARY_API_KEY Windows environment variable.',
+      'CLOUDINARY_CONFIG_INVALID'
+    );
+  }
+
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  });
+};
 
 const storage = multer.memoryStorage();
 
@@ -38,6 +62,8 @@ export const uploadImages = (req, res, next) => {
     }
 
     try {
+      ensureCloudinaryConfig();
+
       let oldImageIds = req.body.oldImagePublicIds;
       if (oldImageIds) {
         if (typeof oldImageIds === 'string') {
@@ -51,7 +77,14 @@ export const uploadImages = (req, res, next) => {
         }
         
         if (Array.isArray(oldImageIds) && oldImageIds.length > 0) {
-          const deletePromises = oldImageIds.map(id => cloudinary.uploader.destroy(id));
+          const deletePromises = oldImageIds.map(id =>
+            new Promise((resolve, reject) => {
+              cloudinary.uploader.destroy(id, (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              });
+            })
+          );
           await Promise.all(deletePromises);
         }
       }
@@ -84,7 +117,7 @@ export const uploadImages = (req, res, next) => {
       
       next();
     } catch (error) {
-      next(new ApiError(500, 'Image processing failed to complete', 'CLOUDINARY_ERROR'));
+      next(new ApiError(500, error?.message || 'Image processing failed to complete', 'CLOUDINARY_ERROR'));
     }
   });
 };

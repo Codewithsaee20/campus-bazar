@@ -10,7 +10,14 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const createListing = asyncHandler(async (req, res) => {
-    const payload = { ...req.body };
+    const allowedFields = ['title', 'bookId', 'description', 'categoryId', 'price', 'mrp', 'condition', 'department', 'semester', 'subject', 'isbn'];
+    const payload = {};
+
+    allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+            payload[field] = req.body[field];
+        }
+    });
 
     if (Array.isArray(req.uploadedImages) && req.uploadedImages.length > 0) {
         payload.images = req.uploadedImages;
@@ -54,7 +61,14 @@ const getListingById = asyncHandler(async (req, res) => {
     });
 
 const updateListing = asyncHandler(async (req, res) => {
-    const payload = { ...req.body };
+    const allowedFields = ['title', 'bookId', 'description', 'categoryId', 'price', 'mrp', 'condition', 'department', 'semester', 'subject', 'isbn', 'status'];
+    const payload = {};
+
+    allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+            payload[field] = req.body[field];
+        }
+    });
 
     if (Array.isArray(req.uploadedImages) && req.uploadedImages.length > 0) {
         payload.images = req.uploadedImages;

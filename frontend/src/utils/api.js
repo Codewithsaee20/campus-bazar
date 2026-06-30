@@ -9,6 +9,11 @@ const api = axios.create({
   timeout: 10000,
 });
 
+export const publicApi = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 8000,
+});
+
 let refreshPromise = null;
 
 const getStoredToken = () => {

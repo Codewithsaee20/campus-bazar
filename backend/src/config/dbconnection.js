@@ -51,6 +51,10 @@ const connectDB = async () => {
         const connectionOptions = getConnectionOptions();
         await mongoose.connect(mongoUri, connectionOptions);
         console.log("Db connected successfully");
+
+        const { seedDefaultCategories } = await import('./seedCategories.js');
+        await seedDefaultCategories();
+
         return true;
     } catch (error) {
         const isSrvDnsError = error?.syscall === "querySrv" && error?.code === "ECONNREFUSED";
@@ -62,6 +66,10 @@ const connectDB = async () => {
                 const connectionOptions = getConnectionOptions();
                 await mongoose.connect(process.env.MONGO_URI_DIRECT, connectionOptions);
                 console.log("Db connected successfully using MONGO_URI_DIRECT fallback");
+
+                const { seedDefaultCategories } = await import('./seedCategories.js');
+                await seedDefaultCategories();
+
                 return true;
             } catch (fallbackError) {
                 console.error("Error connecting to DB with MONGO_URI_DIRECT:", fallbackError);

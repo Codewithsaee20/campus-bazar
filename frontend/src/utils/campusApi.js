@@ -1,4 +1,4 @@
-import api from './api';
+import api, { publicApi } from './api';
 
 const withQuery = (url, params = {}) => {
   const query = new URLSearchParams();
@@ -76,7 +76,7 @@ export const listingApi = {
 
 export const categoryApi = {
   async getAll() {
-    return api.get('/categories');
+    return publicApi.get('/categories');
   },
 };
 
