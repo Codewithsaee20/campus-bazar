@@ -1,0 +1,23 @@
+{
+  "responseStyle": {
+    "verbosity": "minimal",
+    "format": "concise",
+    "preferBullets": true,
+    "avoidIntroductions": true,
+    "avoidRepetition": true
+  },
+  "engineeringWorkflow": {
+    "analyzeBeforeCoding": true,
+    "inspectOnlyRelevantFiles": true,
+    "preferExistingImplementations": true,
+    "minimumChangePolicy": true,
+    "verifyEveryChange": true,
+    "incrementalImplementation": true
+  },
+  "editingSafety": {
+    "safeEditsOnly": true,
+    "preserveArchitecture": true,
+    "avoidUnrelatedRefactors": true,
+    "preferSmallDiffs": true
+  }
+}

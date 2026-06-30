@@ -16,6 +16,13 @@ const emptyForm = {
   contactDetails: '',
 };
 
+const FALLBACK_CATEGORIES = [
+  { id: 'engineering', label: 'Engineering' },
+  { id: 'science', label: 'Science' },
+  { id: 'commerce', label: 'Commerce' },
+  { id: 'arts', label: 'Arts' },
+];
+
 const readLocalListings = () => {
   if (typeof window === 'undefined') return [];
   try {
@@ -25,20 +32,14 @@ const readLocalListings = () => {
   }
 };
 
-const readFileAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Could not read image.'));
-    reader.readAsDataURL(file);
-  });
-
 const writeLocalListings = (nextListings) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(LOCAL_LISTINGS_KEY, JSON.stringify(nextListings));
 };
 
 const normalizeText = (value) => value.trim().replace(/\s+/g, ' ');
+
+const toBookId = (title) => `book_${title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}_${Date.now()}`;
 
 const ListingFormPage = () => {
   const navigate = useNavigate();
@@ -60,10 +61,24 @@ const ListingFormPage = () => {
       try {
         const response = await categoryApi.getAll();
         const categoriesData = unwrapData(response) || [];
-        const nextCategories = categoriesData.map((category) => category?.name || category?.slug || category).filter(Boolean);
-        setCategories(nextCategories.length > 0 ? nextCategories : ['Engineering', 'Science', 'Commerce', 'Arts']);
+        const nextCategories = categoriesData
+          .map((category) => {
+            if (!category) return null;
+            if (typeof category === 'string') {
+              return { id: category.toLowerCase(), label: category };
+            }
+
+            const id = category?._id || category?.id || category?.slug;
+            const label = category?.name || category?.slug || category?._id;
+            if (!id || !label) return null;
+
+            return { id: String(id), label: String(label) };
+          })
+          .filter(Boolean);
+
+        setCategories(nextCategories.length > 0 ? nextCategories : FALLBACK_CATEGORIES);
       } catch {
-        setCategories(['Engineering', 'Science', 'Commerce', 'Arts']);
+        setCategories(FALLBACK_CATEGORIES);
       }
     };
 
@@ -122,12 +137,21 @@ const ListingFormPage = () => {
     if (!contactDetails) nextErrors.contactDetails = 'Contact details are required.';
     if (!selectedImage && !previewUrl) nextErrors.image = 'Book image is required.';
 
+    const selectedCategory = categories.find((category) =>
+      category.label.toLowerCase() === genre.toLowerCase() || category.id.toLowerCase() === genre.toLowerCase()
+    );
+
+    if (!selectedCategory?.id) {
+      nextErrors.genre = 'Please pick a valid category from the list.';
+    }
+
     setErrors(nextErrors);
     return {
       isValid: Object.keys(nextErrors).length === 0,
       normalized: {
         title,
         genre,
+        categoryId: selectedCategory?.id || '',
         description,
         price: price ? Number(price) : 0,
         contactDetails,
@@ -166,10 +190,11 @@ const ListingFormPage = () => {
       setIsSubmitting(true);
       const apiPayload = new FormData();
       apiPayload.append('title', normalized.title);
+      apiPayload.append('bookId', toBookId(normalized.title));
       apiPayload.append('description', normalized.description);
       apiPayload.append('price', String(normalized.price));
       apiPayload.append('condition', normalized.condition === 'New' ? 'New' : 'Good');
-      apiPayload.append('categoryId', normalized.genre);
+      apiPayload.append('categoryId', normalized.categoryId);
       apiPayload.append('contactDetails', normalized.contactDetails);
       apiPayload.append('mrp', String(normalized.price));
       apiPayload.append('college', 'Campus Bazaar');
@@ -177,30 +202,7 @@ const ListingFormPage = () => {
         apiPayload.append('images', selectedImage);
       }
 
-      const previewImage = selectedImage ? await readFileAsDataUrl(selectedImage) : previewUrl;
-      let savedListingId = `local-${Date.now()}`;
-      try {
-        const response = await listingApi.create(apiPayload);
-        const createdListing = unwrapData(response);
-        savedListingId = createdListing?._id || createdListing?.id || savedListingId;
-      } catch {
-        persistListing({
-          id: savedListingId,
-          title: normalized.title,
-          genre: normalized.genre,
-          description: normalized.description,
-          price: normalized.price,
-          condition: normalized.condition,
-          contactDetails: normalized.contactDetails,
-          image: previewImage,
-          sellerName: 'You',
-          sellerEmail: normalized.contactDetails,
-          sellerPhone: normalized.contactDetails,
-          college: 'Campus Bazaar',
-          source: 'local',
-          createdAt: new Date().toISOString(),
-        });
-      }
+      await listingApi.create(apiPayload);
 
       setSuccessMessage('Your book is now live in the marketplace. Redirecting...');
       setForm(emptyForm);
@@ -292,7 +294,7 @@ const ListingFormPage = () => {
                     />
                     <datalist id="listing-genres">
                       {categories.map((genre) => (
-                        <option key={genre} value={genre} />
+                        <option key={genre.id} value={genre.label} />
                       ))}
                     </datalist>
                     {errors.genre ? <p className="listing-field-error">{errors.genre}</p> : null}
