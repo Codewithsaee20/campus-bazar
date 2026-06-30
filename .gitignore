@@ -1,0 +1,78 @@
+# Environment variables (CRITICAL - never commit)
+.env
+.env.local
+.env.*.local
+.env.test
+.env.production
+.env.staging
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+.tsc-out/
+*.log
+
+# IDE/Editor
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+
+# OS specific
+Thumbs.db
+.AppleDouble
+.LSOverride
+*.sublime-project
+*.sublime-workspace
+
+# Local development
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+.cache/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+logs/
+*.log
+lerna-debug.log*
+
+# Credentials and secrets (explicit patterns)
+secrets/
+credentials.json
+keys/
+*.pem
+*.key
+*.keystore
