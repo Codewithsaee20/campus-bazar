@@ -17,16 +17,16 @@ const baseCookieOptions = {
 };
 
 const register = asyncHandler(async (req, res) => {
-  const { name, email, phone, department, branch } = req.body;
+  const { name, email, phone, department } = req.body;
 
-  if (!name || !email || !phone || !department || !branch) {
+  if (!name || !email || !phone || !department) {
     throw new ApiError(
       400,
-      "Name, email, phone, department and branch are required"
+      "Name, email, phone and department are required"
     );
   }
 
-  const result = await registerUser(name, email, phone, department, branch);
+  const result = await registerUser(name, email, phone, department);
 
   return res
     .status(201)

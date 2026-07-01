@@ -8,7 +8,6 @@ const initialForm = {
   email: '',
   phone: '',
   department: '',
-  branch: '',
 };
 
 const validators = {
@@ -31,7 +30,6 @@ const SignUpPage = () => {
       email: form.email.trim(),
       phone: form.phone.trim(),
       department: form.department.trim(),
-      branch: form.branch.trim(),
     }),
     [form]
   );
@@ -47,7 +45,6 @@ const SignUpPage = () => {
     else if (!validators.phone(values.phone)) nextErrors.phone = 'Use 10 to 15 digits with optional + prefix.';
 
     if (!values.department) nextErrors.department = 'Department is required.';
-    if (!values.branch) nextErrors.branch = 'Branch is required.';
 
     return nextErrors;
   };
@@ -81,7 +78,7 @@ const SignUpPage = () => {
 
     const nextErrors = validate(trimmedValues);
     setErrors(nextErrors);
-    setTouched({ name: true, email: true, phone: true, department: true, branch: true });
+    setTouched({ name: true, email: true, phone: true, department: true });
 
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -92,7 +89,6 @@ const SignUpPage = () => {
         email: trimmedValues.email,
         phone: trimmedValues.phone,
         department: trimmedValues.department,
-        branch: trimmedValues.branch,
       });
 
       const responseEmail = response?.data?.data?.email || trimmedValues.email;
@@ -138,13 +134,6 @@ const SignUpPage = () => {
       type: 'text',
       placeholder: 'Computer Science',
       autoComplete: 'organization-title',
-    },
-    {
-      label: 'Branch',
-      name: 'branch',
-      type: 'text',
-      placeholder: 'AI & ML',
-      autoComplete: 'off',
     },
   ];
 
@@ -290,35 +279,6 @@ const SignUpPage = () => {
                 )}
               </div>
             ))}
-          </div>
-
-          <div style={{ display: 'grid', gap: '0.45rem' }}>
-            <label htmlFor="branch" style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
-              Branch
-            </label>
-            <input
-              id="branch"
-              name="branch"
-              type="text"
-              value={form.branch}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              placeholder="AI & ML"
-              autoComplete="off"
-              className="form-input signup-input"
-              disabled={loading}
-              style={{
-                background: '#ffffff',
-                border: showFieldError('branch')
-                  ? '1px solid rgba(239, 68, 68, 0.55)'
-                  : '1px solid rgba(148, 163, 184, 0.25)',
-                color: 'var(--text-main)',
-                transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
-              }}
-            />
-            {showFieldError('branch') && (
-              <span style={{ color: '#b91c1c', fontSize: '0.82rem', fontWeight: 500 }}>{errors.branch}</span>
-            )}
           </div>
 
           <button

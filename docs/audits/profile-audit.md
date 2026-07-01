@@ -42,7 +42,7 @@ The profile module covers user identity display, account updates, profile-facing
 
 - The engineering audit reports weak backend validation for profile editing.
 - Profile fallback behavior may confuse unauthenticated users.
-- Department and branch data validation needs stronger enforcement.
+- Department data validation needs stronger enforcement.
 
 ## Notes
 

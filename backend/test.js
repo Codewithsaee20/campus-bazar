@@ -13,7 +13,6 @@ const USER_A = {
   name: "Test Seller",
   email: "seller@test.edu",       // ← change to a valid college email
   password: "Test@1234",
-  branch: "CSE",
   year: 2,
   phone: "9876543210",
 };
@@ -22,7 +21,6 @@ const USER_B = {
   name: "Test Buyer",
   email: "buyer@test.edu",        // ← change to a valid college email
   password: "Test@1234",
-  branch: "ECE",
   year: 3,
   phone: "9876543211",
 };

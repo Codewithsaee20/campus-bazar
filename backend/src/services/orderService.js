@@ -8,7 +8,7 @@ import { ApiError } from "../utils/ApiError.js";
 
 const sellerBuyerPopulate = {
   path: "buyerId",
-  select: "name phone department branch email college",
+  select: "name phone department email college",
 };
 
 const orderMailTransporter =

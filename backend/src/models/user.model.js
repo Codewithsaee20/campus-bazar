@@ -42,12 +42,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    branch: {
-      type: String,
-      required: [true, "Branch is required"],
-      trim: true,
-    },
-
     profilePic: {
       type: String,
     },

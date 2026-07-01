@@ -152,7 +152,7 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
 };
 
 // Register new user and send OTP for verification
-const registerUser = async (name, email, phone, department, branch) => {
+const registerUser = async (name, email, phone, department) => {
   const normalizedEmail = normalizeEmail(email);
 
   // Validate college email
@@ -181,7 +181,6 @@ const registerUser = async (name, email, phone, department, branch) => {
     email: normalizedEmail,
     phone,
     department,
-    branch,
     college: getCollegeFromEmail(normalizedEmail),
     role: "user",
     isVerified: false,
@@ -231,7 +230,6 @@ const sendOTP = async (email) => {
       email: normalizedEmail,
       phone: '',
       department: '',
-      branch: '',
       college: getCollegeFromEmail(normalizedEmail),
       role: 'user',
       isVerified: false,
@@ -305,7 +303,6 @@ const verifyOTP = async (email, otp) => {
       email: user.email,
       phone: user.phone,
       department: user.department,
-      branch: user.branch,
       college: user.college,
       profilePic: user.profilePic,
       role: user.role,
@@ -392,7 +389,6 @@ const getProfileById = async (userId) => {
       email: memoryUser.email,
       phone: memoryUser.phone,
       department: memoryUser.department,
-      branch: memoryUser.branch,
       college: memoryUser.college,
       profilePic: memoryUser.profilePic,
       role: memoryUser.role,
@@ -403,7 +399,7 @@ const getProfileById = async (userId) => {
   }
 
   const user = await User.findById(userId).select(
-    "_id name email phone department branch college profilePic role isVerified createdAt updatedAt"
+    "_id name email phone department college profilePic role isVerified createdAt updatedAt"
   );
 
   if (!user) {
@@ -416,7 +412,6 @@ const getProfileById = async (userId) => {
     email: user.email,
     phone: user.phone,
     department: user.department,
-    branch: user.branch,
     college: user.college,
     profilePic: user.profilePic,
     role: user.role,
