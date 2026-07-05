@@ -143,8 +143,12 @@ export const orderApi = {
     return api.patch(`/orders/${id}/accept`, {});
   },
 
-  async generateOtp(id) {
-    return api.post(`/orders/${id}/otp/generate`, {});
+  async markDelivered(id) {
+    return api.patch(`/orders/${id}/deliver`, {});
+  },
+
+  async confirmDelivery(id) {
+    return api.patch(`/orders/${id}/confirm-delivery`, {});
   },
 
   async verifyOtp(id, otp) {

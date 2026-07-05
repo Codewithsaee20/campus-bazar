@@ -34,7 +34,19 @@ const SellerOrdersPage = () => {
       await orderApi.accept(orderId);
       await load();
     } catch (apiError) {
-      setError(apiError?.response?.data?.message || 'Accept action is not available in current backend.');
+      setError(apiError?.response?.data?.message || 'Failed to accept order.');
+    } finally {
+      setActionState({ id: null, type: null });
+    }
+  };
+
+  const handleMarkDelivered = async (orderId) => {
+    try {
+      setActionState({ id: orderId, type: 'deliver' });
+      await orderApi.markDelivered(orderId);
+      await load();
+    } catch (apiError) {
+      setError(apiError?.response?.data?.message || 'Failed to mark order as delivered.');
     } finally {
       setActionState({ id: null, type: null });
     }
@@ -53,7 +65,8 @@ const SellerOrdersPage = () => {
   };
 
   const pendingOrders = orders.filter((order) => PENDING_STATUSES.has(String(order?.status || '').toLowerCase()));
-  const confirmedOrders = orders.filter((order) => String(order?.status || '').toLowerCase() === 'accepted');
+  const acceptedOrders = orders.filter((order) => String(order?.status || '').toLowerCase() === 'accepted');
+  const deliveryConfirmedOrders = orders.filter((order) => String(order?.status || '').toLowerCase() === 'delivery_confirmed');
   const deniedOrders = orders.filter((order) => String(order?.status || '').toLowerCase() === 'cancelled');
 
   return (
@@ -70,12 +83,16 @@ const SellerOrdersPage = () => {
 
         <section className="order-requests-stats">
           <div className="glass order-stat-card">
-            <span>Pending Confirmation</span>
+            <span>Pending Review</span>
             <strong>{pendingOrders.length}</strong>
           </div>
           <div className="glass order-stat-card">
-            <span>Confirmed</span>
-            <strong>{confirmedOrders.length}</strong>
+            <span>Accepted (Ready to Deliver)</span>
+            <strong>{acceptedOrders.length}</strong>
+          </div>
+          <div className="glass order-stat-card">
+            <span>Delivery Confirmed (Ready for OTP)</span>
+            <strong>{deliveryConfirmedOrders.length}</strong>
           </div>
           <div className="glass order-stat-card">
             <span>Denied</span>
@@ -89,7 +106,12 @@ const SellerOrdersPage = () => {
         <div className="order-requests-list" style={{ display: 'grid', gap: '0.9rem' }}>
           {orders.map((order) => {
             const status = String(order?.status || '').toLowerCase();
-            const canRespond = PENDING_STATUSES.has(status);
+            const isPending = PENDING_STATUSES.has(status);
+            const isAccepted = status === 'accepted';
+            const isDeliveryMarked = status === 'delivery_marked';
+            const isDeliveryConfirmed = status === 'delivery_confirmed';
+            const isCompleted = status === 'completed';
+            const canSeeBuyerDetails = !isPending;
 
             return (
               <article key={order._id || order.id} className="glass order-request-card" style={{ borderRadius: '14px', padding: '1rem' }}>
@@ -98,11 +120,18 @@ const SellerOrdersPage = () => {
                   <span className={`order-status-chip ${status}`}>{order.status}</span>
                 </div>
 
-                <p>Buyer: {order?.buyerId?.name || order?.buyerId?.email || 'N/A'}</p>
+                {canSeeBuyerDetails ? (
+                  <>
+                    <p>Buyer: {order?.buyerId?.name || order?.buyerId?.email || 'N/A'}</p>
+                    {order?.buyerId?.phone && <p>Buyer Phone: {order.buyerId.phone}</p>}
+                  </>
+                ) : (
+                  <p style={{ color: 'var(--text-dim)' }}>Buyer details hidden until you accept this order.</p>
+                )}
                 <p>Price: ₹{order?.totalPrice || order?.listingSnapShot?.price || order?.listingId?.buyerPrice || 0}</p>
 
                 <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.8rem', flexWrap: 'wrap' }}>
-                  {canRespond ? (
+                  {isPending && (
                     <>
                       <button
                         type="button"
@@ -110,7 +139,7 @@ const SellerOrdersPage = () => {
                         onClick={() => handleAccept(order._id)}
                         disabled={actionState.id === order._id}
                       >
-                        {actionState.id === order._id && actionState.type === 'accept' ? 'Confirming...' : 'Confirm Order'}
+                        {actionState.id === order._id && actionState.type === 'accept' ? 'Accepting...' : 'Accept Order'}
                       </button>
 
                       <button
@@ -122,11 +151,32 @@ const SellerOrdersPage = () => {
                         {actionState.id === order._id && actionState.type === 'deny' ? 'Denying...' : 'Deny Order'}
                       </button>
                     </>
-                  ) : null}
+                  )}
 
-                  <Link to={`/orders/${order._id}/handoff`} className="btn-primary" style={{ textDecoration: 'none' }}>
-                    OTP Screen
-                  </Link>
+                  {isAccepted && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleMarkDelivered(order._id)}
+                      disabled={actionState.id === order._id}
+                    >
+                      {actionState.id === order._id && actionState.type === 'deliver' ? 'Marking...' : 'Delivery Done'}
+                    </button>
+                  )}
+
+                  {isDeliveryMarked && (
+                    <span style={{ padding: '0.5rem 1rem', color: 'var(--text-dim)' }}>Waiting for buyer to confirm delivery...</span>
+                  )}
+
+                  {isDeliveryConfirmed && (
+                    <Link to={`/orders/${order._id}/handoff`} className="btn-primary" style={{ textDecoration: 'none' }}>
+                      Enter OTP
+                    </Link>
+                  )}
+
+                  {isCompleted && (
+                    <span style={{ padding: '0.5rem 1rem', color: '#10b981', fontWeight: 'bold' }}>✓ Completed</span>
+                  )}
                 </div>
               </article>
             );
