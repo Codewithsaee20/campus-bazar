@@ -42,20 +42,20 @@ const orderSchema = new mongoose.Schema({
     //order lifecycle
     status: {
       type: String,
-        enum: ["PENDING", "ACCEPTED", "COMPLETED", "CANCELLED"],
+        enum: ["PENDING", "ACCEPTED", "DELIVERY_MARKED", "DELIVERY_CONFIRMED", "COMPLETED", "CANCELLED"],
         default: "PENDING",
     },
 
     // --- OTP Handoff system ---
-    // The seller generates this OTP at the meetup point.
-    // Buyer types it in to confirm they received the item.
+    // Backend generates this automatically once the buyer confirms delivery.
+    // Seller types it in (buyer reads it out) to complete the order.
     otp: {
       type: String,
-      default: null, // null until seller generates it
+      default: null, // null until buyer confirms delivery
     },
     otpExpiresAt: {
       type: Date,
-      default: null, // null until seller generates it
+      default: null, // null until buyer confirms delivery
     },
 
     payoutReleased: {
@@ -89,7 +89,7 @@ orderSchema.index(
   {
     unique: false,
     partialFilterExpression: {
-      status: { $in: ["PENDING", "ACCEPTED"] }
+      status: { $in: ["PENDING", "ACCEPTED", "DELIVERY_MARKED", "DELIVERY_CONFIRMED"] }
     },
     name: "one_active_order_per_listing"
   }

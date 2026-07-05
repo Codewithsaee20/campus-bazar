@@ -2,8 +2,10 @@ import { createOrder,
   getMyBuyingOrders,
   getMySellingOrders,
   getOrderById,
+  acceptOrder,
+  markDelivered,
+  confirmDelivery,
   cancelOrder,
-  generateOtp,
   verifyOtp } from "../controllers/orderController.js";
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
@@ -20,10 +22,12 @@ router.get("/my/selling", getMySellingOrders);
 // ── CRUD ────────────────────────────────────────────────
 router.post("/", createOrder);
 router.get("/:id", getOrderById);
+router.patch("/:id/accept", acceptOrder);
+router.patch("/:id/deliver", markDelivered);
+router.patch("/:id/confirm-delivery", confirmDelivery);
 router.patch("/:id/cancel", cancelOrder);
 
 // ── OTP handoff ─────────────────────────────────────────
-router.post("/:id/otp/generate", generateOtp);
 router.post("/:id/otp/verify", verifyOtp);
 
 export default router;

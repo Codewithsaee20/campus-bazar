@@ -22,22 +22,85 @@ const orderMailTransporter =
       })
     : null;
 
-const notifySellerListingBooked = async ({ sellerEmail, sellerName, buyerName, title }) => {
+// Note: buyer identity must stay hidden from the seller until the order is
+// ACCEPTED, so this notification intentionally omits the buyer's name.
+const notifySellerListingBooked = async ({ sellerEmail, sellerName, title }) => {
   if (!orderMailTransporter || !sellerEmail) return;
 
   await orderMailTransporter.sendMail({
     from: process.env.EMAIL_USER,
     to: sellerEmail,
-    subject: "CampusBazar - Your listing is booked",
+    subject: "CampusBazar - New order request",
     html: `
       <h2>Hello ${sellerName || "Seller"},</h2>
-      <p>Your listing has been booked by a buyer.</p>
+      <p>You have a new order request for your listing.</p>
       <p><strong>Book:</strong> ${title}</p>
-      <p><strong>Buyer:</strong> ${buyerName || "A CampusBazar user"}</p>
-      <p>Please open your selling orders to view buyer details and coordinate cash on delivery.</p>
+      <p>Open your selling orders to accept or deny this request.</p>
     `,
   });
 };
+
+const notifyBuyerOrderAccepted = async ({ buyerEmail, buyerName, title }) => {
+  if (!orderMailTransporter || !buyerEmail) return;
+
+  await orderMailTransporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: buyerEmail,
+    subject: "CampusBazar - Your order was accepted",
+    html: `
+      <h2>Hello ${buyerName || "Buyer"},</h2>
+      <p>The seller accepted your order for <strong>${title}</strong>.</p>
+      <p>They will mark it as delivered once you receive the item.</p>
+    `,
+  });
+};
+
+const notifyBuyerDeliveryMarked = async ({ buyerEmail, buyerName, title }) => {
+  if (!orderMailTransporter || !buyerEmail) return;
+
+  await orderMailTransporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: buyerEmail,
+    subject: "CampusBazar - Delivery marked, please confirm",
+    html: `
+      <h2>Hello ${buyerName || "Buyer"},</h2>
+      <p>The seller marked <strong>${title}</strong> as delivered.</p>
+      <p>Please confirm delivery in the app once you have received it.</p>
+    `,
+  });
+};
+
+// No SMS gateway is configured in this codebase yet. The OTP is delivered to
+// the buyer via email as a stand-in for "buyer's phone" until SMS is wired up.
+const sendOtpToBuyer = async ({ buyerEmail, buyerName, title, otp }) => {
+  if (!orderMailTransporter || !buyerEmail) return;
+
+  await orderMailTransporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: buyerEmail,
+    subject: "CampusBazar - Your handoff OTP",
+    html: `
+      <h2>Hello ${buyerName || "Buyer"},</h2>
+      <p>Your OTP for <strong>${title}</strong> is:</p>
+      <h1>${otp}</h1>
+      <p>Share this code with the seller only after you receive the item. It expires in 10 minutes.</p>
+    `,
+  });
+};
+
+// Hides buyer PII from the seller until the order has been ACCEPTED.
+const sanitizeOrderForSeller = (order) => {
+  if (!order) return order;
+  const plain = typeof order.toObject === "function" ? order.toObject() : order;
+
+  if (plain.status === "PENDING" && plain.buyerId && typeof plain.buyerId === "object") {
+    plain.buyerId = { _id: plain.buyerId._id };
+  }
+
+  return plain;
+};
+
+const ACTIVE_ORDER_STATUSES = ["PENDING", "ACCEPTED", "DELIVERY_MARKED", "DELIVERY_CONFIRMED"];
 
 const createOrder = async (buyerId, listingId) => {
   if (!listingId) {
@@ -46,7 +109,7 @@ const createOrder = async (buyerId, listingId) => {
 
   const existingOrder = await Order.findOne({
     listingId,
-    status: { $in: ["PENDING", "ACCEPTED"] },
+    status: { $in: ACTIVE_ORDER_STATUSES },
   });
 
   if (existingOrder) {
@@ -85,15 +148,11 @@ const createOrder = async (buyerId, listingId) => {
 
   // Notification should not block order creation.
   try {
-    const [seller, buyer] = await Promise.all([
-      User.findById(listing.sellerId).select("email name"),
-      User.findById(buyerId).select("name"),
-    ]);
+    const seller = await User.findById(listing.sellerId).select("email name");
 
     await notifySellerListingBooked({
       sellerEmail: seller?.email,
       sellerName: seller?.name,
-      buyerName: buyer?.name,
       title: listing.title,
     });
   } catch (error) {
@@ -129,6 +188,97 @@ const acceptOrder = async (orderId, sellerId) => {
 
   order.status = "ACCEPTED";
   await order.save();
+
+  try {
+    const buyer = await User.findById(order.buyerId).select("email name");
+    await notifyBuyerOrderAccepted({
+      buyerEmail: buyer?.email,
+      buyerName: buyer?.name,
+      title: order.listingSnapshot?.title,
+    });
+  } catch (error) {
+    console.warn("Failed to send order-accepted notification:", error.message);
+  }
+
+  return order.populate(sellerBuyerPopulate);
+};
+
+// Seller marks the item as physically delivered to the buyer.
+const markDelivered = async (orderId, sellerId) => {
+  if (!orderId) {
+    throw new ApiError(400, "orderId is required", "MISSING_ORDER_ID");
+  }
+
+  const order = await Order.findById(orderId);
+
+  if (!order) {
+    throw new ApiError(404, "Order not found", "ORDER_NOT_FOUND");
+  }
+
+  if (String(order.sellerId) !== String(sellerId)) {
+    throw new ApiError(403, "Only seller can mark order as delivered", "UNAUTHORIZED");
+  }
+
+  if (order.status !== "ACCEPTED") {
+    throw new ApiError(400, "Only accepted orders can be marked as delivered", "INVALID_STATUS");
+  }
+
+  order.status = "DELIVERY_MARKED";
+  await order.save();
+
+  try {
+    const buyer = await User.findById(order.buyerId).select("email name");
+    await notifyBuyerDeliveryMarked({
+      buyerEmail: buyer?.email,
+      buyerName: buyer?.name,
+      title: order.listingSnapshot?.title,
+    });
+  } catch (error) {
+    console.warn("Failed to send delivery-marked notification:", error.message);
+  }
+
+  return order;
+};
+
+// Buyer confirms they received the item. Backend auto-generates the OTP and
+// sends it to the buyer only — the seller never sees or generates it.
+const confirmDelivery = async (orderId, buyerId) => {
+  if (!orderId) {
+    throw new ApiError(400, "orderId is required", "MISSING_ORDER_ID");
+  }
+
+  const order = await Order.findById(orderId);
+
+  if (!order) {
+    throw new ApiError(404, "Order not found", "ORDER_NOT_FOUND");
+  }
+
+  if (String(order.buyerId) !== String(buyerId)) {
+    throw new ApiError(403, "Only buyer can confirm delivery", "UNAUTHORIZED");
+  }
+
+  if (order.status !== "DELIVERY_MARKED") {
+    throw new ApiError(400, "Only orders marked as delivered can be confirmed", "INVALID_STATUS");
+  }
+
+  const otp = String(crypto.randomInt(100000, 1000000));
+  order.status = "DELIVERY_CONFIRMED";
+  order.otp = otp;
+  order.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await order.save();
+
+  try {
+    const buyer = await User.findById(order.buyerId).select("email name");
+    await sendOtpToBuyer({
+      buyerEmail: buyer?.email,
+      buyerName: buyer?.name,
+      title: order.listingSnapshot?.title,
+      otp,
+    });
+  } catch (error) {
+    console.warn("Failed to send OTP to buyer:", error.message);
+  }
+
   return order;
 };
 
@@ -163,7 +313,9 @@ const cancelOrder = async (orderId, userId, reason) => {
   return order;
 };
 
-const generateOtp = async (orderId, sellerId) => {
+// Seller enters the OTP the buyer read out to them. Buyer never enters an
+// OTP in the app; seller never generates one.
+const verifyOtp = async (orderId, sellerId, otp) => {
   if (!orderId) {
     throw new ApiError(400, "orderId is required", "MISSING_ORDER_ID");
   }
@@ -175,41 +327,11 @@ const generateOtp = async (orderId, sellerId) => {
   }
 
   if (String(order.sellerId) !== String(sellerId)) {
-    throw new ApiError(403, "Only seller can generate OTP", "UNAUTHORIZED");
+    throw new ApiError(403, "Only seller can verify OTP", "UNAUTHORIZED");
   }
 
-  if (order.status !== "ACCEPTED") {
-    throw new ApiError(400, "OTP can only be generated for accepted orders", "INVALID_STATUS");
-  }
-
-  const otp = String(crypto.randomInt(100000, 1000000));
-  order.otp = otp;
-  order.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await order.save();
-
-  return {
-    otp,
-    otpExpiresAt: order.otpExpiresAt,
-  };
-};
-
-const verifyOtp = async (orderId, buyerId, otp) => {
-  if (!orderId) {
-    throw new ApiError(400, "orderId is required", "MISSING_ORDER_ID");
-  }
-
-  const order = await Order.findById(orderId);
-
-  if (!order) {
-    throw new ApiError(404, "Order not found", "ORDER_NOT_FOUND");
-  }
-
-  if (String(order.buyerId) !== String(buyerId)) {
-    throw new ApiError(403, "Only buyer can verify OTP", "UNAUTHORIZED");
-  }
-
-  if (order.status !== "ACCEPTED") {
-    throw new ApiError(400, "Only accepted orders can be completed", "INVALID_STATUS");
+  if (order.status !== "DELIVERY_CONFIRMED") {
+    throw new ApiError(400, "OTP can only be verified after buyer confirms delivery", "INVALID_STATUS");
   }
 
   if (!order.otp || !order.otpExpiresAt) {
@@ -227,6 +349,8 @@ const verifyOtp = async (orderId, buyerId, otp) => {
   order.status = "COMPLETED";
   order.otp = null;
   order.otpExpiresAt = null;
+  order.payoutReleased = true;
+  order.payoutId = `PAYOUT-${order._id}-${Date.now()}`;
   await order.save();
 
   const listing = await Listing.findByIdAndUpdate(order.listingId, { status: "Sold" });
@@ -252,9 +376,11 @@ const getBuyerOrders = async (buyerId) => {
 };
 
 const getSellerOrders = async (sellerId) => {
-  return Order.find({ sellerId })
+  const orders = await Order.find({ sellerId })
     .populate(sellerBuyerPopulate)
     .sort({ createdAt: -1 });
+
+  return orders.map(sanitizeOrderForSeller);
 };
 
 const getOrderById = async (orderId, userId) => {
@@ -276,7 +402,8 @@ const getOrderById = async (orderId, userId) => {
   }
 
   if (isSeller) {
-    return order.populate(sellerBuyerPopulate);
+    await order.populate(sellerBuyerPopulate);
+    return sanitizeOrderForSeller(order);
   }
 
   return order;
@@ -285,8 +412,9 @@ const getOrderById = async (orderId, userId) => {
 export {
   createOrder,
   acceptOrder,
+  markDelivered,
+  confirmDelivery,
   cancelOrder,
-  generateOtp,
   verifyOtp,
   getBuyerOrders,
   getSellerOrders,
