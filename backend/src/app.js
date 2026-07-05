@@ -24,7 +24,7 @@ app.use(cors(
         credentials: true
     }
 ));
-app.use(express.json({limit: '100mb'}));
+app.use(express.json({limit: '3mb'}));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
@@ -37,9 +37,10 @@ import interestRoute from "./routes/interestRoute.js";
 import ratingRoute from "./routes/ratingRoute.js";
 import reportRoute from "./routes/reportRoute.js";
 import bookRoute from "./routes/bookRoute.js";
-
+import { globalLimiter } from "./middleware/rateLimiter.js";
 
 app.use("/api/v1/health", healthCheckRouter);
+app.use("/api/v1", globalLimiter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/listings", listingRouter);
 app.use("/api/v1/categories", categoryRouter);

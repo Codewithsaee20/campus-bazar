@@ -76,3 +76,7 @@ keys/
 *.pem
 *.key
 *.keystore
+
+# Local task tracking
+task.md
+fullaudit.md
