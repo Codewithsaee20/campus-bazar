@@ -38,7 +38,7 @@ const SignUpPage = () => {
     const nextErrors = {};
 
     if (!values.name) nextErrors.name = 'Full name is required.';
-    if (!values.email) nextErrors.email = 'College email is required.';
+    if (!values.email) nextErrors.email = 'Email is required.';
     else if (!validators.email(values.email)) nextErrors.email = 'Enter a valid email address.';
 
     if (!values.phone) nextErrors.phone = 'WhatsApp number is required.';
@@ -115,10 +115,10 @@ const SignUpPage = () => {
       autoComplete: 'name',
     },
     {
-      label: 'College Email',
+        label: 'Email',
       name: 'email',
       type: 'email',
-      placeholder: 'name@college.edu',
+        placeholder: 'name@gmail.com',
       autoComplete: 'email',
     },
     {

@@ -104,7 +104,9 @@ const MyOrdersPage = () => {
                     </button>
                   )}
                   {isDeliveryConfirmed && (
-                    <span style={{ padding: '0.5rem 1rem', color: '#f59e0b' }}>OTP sent to your phone. Tell it to the seller.</span>
+                    <span style={{ padding: '0.5rem 1rem', color: '#f59e0b' }}>
+                      Your OTP: <strong>{order?.otp || '------'}</strong> — share this with the seller to complete the order.
+                    </span>
                   )}
                   {isCompleted && (
                     <span style={{ padding: '0.5rem 1rem', color: '#10b981', fontWeight: 'bold' }}>✓ Order Completed</span>

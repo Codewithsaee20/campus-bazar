@@ -53,6 +53,7 @@ const createListing = async (data, userId, college) => {
   const resaleCount = await getCompletedResaleCount(data.bookId);
   const suggestedPrice = getSuggestedPrice(mrp, resaleCount);
   const categoryId = await resolveCategoryId(data.categoryId);
+  const resolvedCollege = college || "Campus Bazaar";
 
   const listing = await Listing.create({
     ...data,
@@ -61,7 +62,7 @@ const createListing = async (data, userId, college) => {
     price: data.price !== undefined ? Number(data.price) : suggestedPrice,
     suggestedPrice,
     sellerId: userId,
-    college,
+    college: resolvedCollege,
   });
 
   return listing;

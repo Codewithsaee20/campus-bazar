@@ -9,7 +9,7 @@ const AuthPhonePage = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const isValidCollegeEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSendOtp = async (event) => {
     event.preventDefault();
@@ -17,12 +17,12 @@ const AuthPhonePage = () => {
     setMessage('');
 
     if (!email.trim()) {
-      setError('Enter your college email to continue.');
+      setError('Enter your email to continue.');
       return;
     }
 
-    if (!isValidCollegeEmail(email.trim())) {
-      setError('Enter a valid college email address.');
+    if (!isValidEmail(email.trim())) {
+      setError('Enter a valid email address.');
       return;
     }
 
@@ -45,16 +45,16 @@ const AuthPhonePage = () => {
       <div className="glass" style={{ width: '100%', maxWidth: '480px', padding: '2rem', borderRadius: '20px' }}>
         <h1 style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>Login with OTP</h1>
         <p style={{ color: 'var(--text-dim)', marginBottom: '1.5rem' }}>
-          Enter your college email and we will send a 6-digit OTP.
+          Enter your email and we will send a 6-digit OTP.
         </p>
 
         <form onSubmit={handleSendOtp} style={{ display: 'grid', gap: '1rem' }}>
-          <label style={{ fontWeight: 600 }}>College Email</label>
+          <label style={{ fontWeight: 600 }}>Email</label>
           <input
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@college.edu"
+            placeholder="name@gmail.com"
             className="form-input"
             required
           />

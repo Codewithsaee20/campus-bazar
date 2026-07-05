@@ -30,7 +30,7 @@ const register = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(201, result || {}, result?.message || "OTP sent to your college email"));
+    .json(new ApiResponse(201, result || {}, result?.message || "OTP sent to your email"));
 });
 
 const sendOTP = asyncHandler(async (req, res) => {
@@ -44,7 +44,7 @@ const sendOTP = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, result || {}, result?.message || "OTP sent to your college email"));
+    .json(new ApiResponse(200, result || {}, result?.message || "OTP sent to your email"));
 });
 
 const verifyOTP = asyncHandler(async (req, res) => {

@@ -12,7 +12,7 @@ const otpSchema = new mongoose.Schema(
       trim: true,
       validate: {
         validator: isCollegeEmail,
-        message: 'Only vcet.edu.in email addresses are allowed',
+        message: 'Only approved email domains are allowed',
       },
     },
     otp: {

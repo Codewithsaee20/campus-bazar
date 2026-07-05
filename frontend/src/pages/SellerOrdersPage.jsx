@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { orderApi, unwrapData } from '../utils/campusApi';
 
@@ -10,6 +9,7 @@ const SellerOrdersPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionState, setActionState] = useState({ id: null, type: null });
+  const [otpInputs, setOtpInputs] = useState({});
 
   const load = async () => {
     try {
@@ -47,6 +47,19 @@ const SellerOrdersPage = () => {
       await load();
     } catch (apiError) {
       setError(apiError?.response?.data?.message || 'Failed to mark order as delivered.');
+    } finally {
+      setActionState({ id: null, type: null });
+    }
+  };
+
+  const handleVerifyOtp = async (orderId) => {
+    try {
+      setActionState({ id: orderId, type: 'verify-otp' });
+      await orderApi.verifyOtp(orderId, otpInputs[orderId] || '');
+      setOtpInputs((prev) => ({ ...prev, [orderId]: '' }));
+      await load();
+    } catch (apiError) {
+      setError(apiError?.response?.data?.message || 'OTP verification failed.');
     } finally {
       setActionState({ id: null, type: null });
     }
@@ -169,9 +182,29 @@ const SellerOrdersPage = () => {
                   )}
 
                   {isDeliveryConfirmed && (
-                    <Link to={`/orders/${order._id}/handoff`} className="btn-primary" style={{ textDecoration: 'none' }}>
-                      Enter OTP
-                    </Link>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        className="form-input"
+                        value={otpInputs[order._id] || ''}
+                        onChange={(event) =>
+                          setOtpInputs((prev) => ({
+                            ...prev,
+                            [order._id]: event.target.value.replace(/\D/g, '').slice(0, 6),
+                          }))
+                        }
+                        placeholder="Enter OTP from buyer"
+                        maxLength={6}
+                        style={{ maxWidth: '160px' }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => handleVerifyOtp(order._id)}
+                        disabled={actionState.id === order._id || !(otpInputs[order._id] || '').length}
+                      >
+                        {actionState.id === order._id && actionState.type === 'verify-otp' ? 'Verifying...' : 'Confirm OTP'}
+                      </button>
+                    </div>
                   )}
 
                   {isCompleted && (

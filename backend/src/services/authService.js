@@ -148,18 +148,18 @@ const createAndSendOTP = async (email, subject = "CampusBazar - Your OTP") => {
     throw new ApiError(500, "Failed to send OTP email", "EMAIL_SEND_ERROR");
   }
 
-  return { message: "OTP sent to your college email" };
+  return { message: "OTP sent to your email" };
 };
 
 // Register new user and send OTP for verification
 const registerUser = async (name, email, phone, department) => {
   const normalizedEmail = normalizeEmail(email);
 
-  // Validate college email
+  // Validate approved email
   if (!isCollegeEmail(normalizedEmail)) {
     throw new ApiError(
       400,
-      "Only registered college emails are allowed",
+      "Only approved email domains are allowed",
       "INVALID_EMAIL_DOMAIN"
     );
   }
@@ -204,11 +204,11 @@ const registerUser = async (name, email, phone, department) => {
 const sendOTP = async (email) => {
   const normalizedEmail = normalizeEmail(email);
 
-  // Validate college email
+  // Validate approved email
   if (!isCollegeEmail(normalizedEmail)) {
     throw new ApiError(
       400,
-      "Only registered college emails are allowed",
+      "Only approved email domains are allowed",
       "INVALID_EMAIL_DOMAIN"
     );
   }
@@ -245,11 +245,11 @@ const sendOTP = async (email) => {
 const verifyOTP = async (email, otp) => {
   const normalizedEmail = normalizeEmail(email);
 
-  // Validate college email
+  // Validate approved email
   if (!isCollegeEmail(normalizedEmail)) {
     throw new ApiError(
       400,
-      "Only registered college emails are allowed",
+      "Only approved email domains are allowed",
       "INVALID_EMAIL_DOMAIN"
     );
   }

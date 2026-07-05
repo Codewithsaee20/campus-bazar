@@ -53,6 +53,7 @@ const Navbar = () => {
     return [
       { label: 'Marketplace', to: '/marketplace' },
       { label: 'Sell Book', to: '/listings/new' },
+      { label: 'My Orders', to: '/orders/my' },
       { label: 'Order Requests', to: '/orders/requests' },
       { label: 'My Listings', to: '/my-listings' },
     ];
