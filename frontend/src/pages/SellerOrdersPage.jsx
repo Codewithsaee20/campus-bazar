@@ -129,7 +129,7 @@ const SellerOrdersPage = () => {
             return (
               <article key={order._id || order.id} className="glass order-request-card" style={{ borderRadius: '14px', padding: '1rem' }}>
                 <div className="order-request-topline">
-                  <h3 style={{ marginBottom: '0.45rem' }}>{order?.listingSnapShot?.title || order?.listingId?.title || 'Listing'}</h3>
+                  <h3 style={{ marginBottom: '0.45rem' }}>{order?.listingSnapshot?.title || order?.listingId?.title || 'Listing'}</h3>
                   <span className={`order-status-chip ${status}`}>{order.status}</span>
                 </div>
 
@@ -141,7 +141,7 @@ const SellerOrdersPage = () => {
                 ) : (
                   <p style={{ color: 'var(--text-dim)' }}>Buyer details hidden until you accept this order.</p>
                 )}
-                <p>Price: ₹{order?.totalPrice || order?.listingSnapShot?.price || order?.listingId?.buyerPrice || 0}</p>
+                <p>Price: ₹{order?.totalPrice || order?.listingSnapshot?.price || order?.listingId?.buyerPrice || 0}</p>
 
                 <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.8rem', flexWrap: 'wrap' }}>
                   {isPending && (

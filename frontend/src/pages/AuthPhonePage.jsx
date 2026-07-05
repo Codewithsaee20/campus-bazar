@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '../utils/campusApi';
 
 const AuthPhonePage = () => {
@@ -66,6 +66,13 @@ const AuthPhonePage = () => {
 
         {message && <p style={{ marginTop: '1rem', color: '#0ea5e9' }}>{message}</p>}
         {error && <p style={{ marginTop: '1rem', color: '#ef4444' }}>{error}</p>}
+
+        <p style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+          Don't have an account?{' '}
+          <Link to="/signup" style={{ color: '#0ea5e9', fontWeight: 600 }}>
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
   );

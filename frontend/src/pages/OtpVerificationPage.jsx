@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { authApi, unwrapData } from '../utils/campusApi';
 
-const OTP_VALIDITY_SECONDS = 120;
+const OTP_VALIDITY_SECONDS = 90;
 const OTP_LENGTH = 6;
 
 const OtpVerificationPage = () => {

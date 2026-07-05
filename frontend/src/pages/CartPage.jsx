@@ -107,10 +107,10 @@ const CartPage = () => {
           <div className="glass" style={{ borderRadius: '26px', padding: '2.5rem 2rem', textAlign: 'center', maxWidth: '520px' }}>
             <div style={{ fontSize: '4rem', marginBottom: '0.85rem' }}>🎉</div>
             <h1 style={{ fontSize: '2.1rem', fontWeight: 900, marginBottom: '0.65rem' }}>
-            Order <span className="text-gradient">Confirmed!</span>
+            Order <span className="text-gradient">Placed!</span>
             </h1>
             <p style={{ color: 'var(--text-dim)', fontSize: '1.02rem' }}>
-              Your order is placed. Redirecting to your orders...
+              Order placed, wait for confirmation. Redirecting to your orders...
             </p>
           </div>
         </div>

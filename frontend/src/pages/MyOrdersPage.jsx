@@ -76,11 +76,11 @@ const MyOrdersPage = () => {
 
             return (
               <div key={order._id || order.id} className="glass" style={{ borderRadius: '12px', padding: '1rem' }}>
-                <h3 style={{ marginBottom: '0.4rem' }}>{order?.listingSnapShot?.title || order?.listingId?.title || 'Listing'}</h3>
+                <h3 style={{ marginBottom: '0.4rem' }}>{order?.listingSnapshot?.title || order?.listingId?.title || 'Listing'}</h3>
                 <p>Status: <strong>{order.status}</strong></p>
                 <p>Seller: {order?.sellerId?.name || order?.sellerId?.email || 'N/A'}</p>
                 <p>Book: {order?.bookId || order?.listingId?.bookId || 'N/A'}</p>
-                <p>Price: ₹{order?.listingSnapShot?.price || 0}</p>
+                <p>Price: ₹{order?.listingSnapshot?.price || 0}</p>
 
                 {countdown !== null && isDeliveryConfirmed && (
                   <p style={{ color: '#f59e0b' }}>OTP Expires In: <strong>{countdown}s</strong></p>
