@@ -302,11 +302,7 @@ npm test
 - Support for multiple images per listing
 - Automatic image optimization and delivery
 
----
-
-## 📬 Support & Contact
-
-For issues, suggestions, or queries, please refer to the project documentation or contact the development team at `nagesh.ghadge@gmail.com`.
+--
 
 ---
 
