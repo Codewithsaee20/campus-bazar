@@ -80,3 +80,8 @@ keys/
 # Local task tracking
 task.md
 fullaudit.md
+*.md
+!README.md
+!readme.md
+docs/
+claude/

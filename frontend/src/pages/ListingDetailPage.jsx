@@ -108,7 +108,7 @@ const ListingDetailPage = () => {
                   <p>ISBN: {listing.isbn || listing?.bookId?.isbn || 'N/A'}</p>
                   <p>
                     Status:{' '}
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', background: 'rgba(2,132,199,0.14)' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', background: 'var(--landing-icon-bg-cyan)' }}>
                       {listing.status}
                     </span>
                   </p>

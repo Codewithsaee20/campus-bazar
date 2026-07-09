@@ -1,10 +1,9 @@
 import { Category } from '../models/category.model.js';
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Engineering', slug: 'engineering' },
-  { name: 'Science', slug: 'science' },
-  { name: 'Commerce', slug: 'commerce' },
-  { name: 'Arts', slug: 'arts' },
+  { name: 'Books', slug: 'books' },
+  { name: 'Notes', slug: 'notes' },
+  { name: 'Stationery', slug: 'stationery' },
 ];
 
 export async function seedDefaultCategories() {

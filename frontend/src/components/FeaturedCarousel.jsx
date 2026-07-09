@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { BadgeIndianRupee, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { mockBooks } from '../data/mockBooks';
 
@@ -25,6 +25,7 @@ const useVisibleCount = () => {
 };
 
 const FeaturedCarousel = () => {
+  const prefersReducedMotion = useReducedMotion();
   const visibleCount = useVisibleCount();
   const [currentIndex, setCurrentIndex] = useState(0);
   const ref = React.useRef(null);
@@ -70,7 +71,13 @@ const FeaturedCarousel = () => {
           </p>
         </motion.div>
 
-        <div className="landing-carousel-shell glass">
+        <motion.div
+          className="landing-carousel-shell glass"
+          initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: prefersReducedMotion ? 0.2 : 0.7 }}
+        >
           <button type="button" className="landing-carousel-nav left" onClick={goPrev} aria-label="Previous featured books">
             <ChevronLeft size={18} />
           </button>
@@ -118,7 +125,7 @@ const FeaturedCarousel = () => {
               />
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

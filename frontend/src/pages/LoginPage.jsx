@@ -76,21 +76,21 @@ const LoginPage = () => {
             background: 'linear-gradient(135deg, var(--color-violet), var(--color-pink))',
             marginBottom: '1.5rem',
             fontSize: '1.5rem',
-            boxShadow: '0 10px 20px rgba(139, 92, 246, 0.3)',
+            boxShadow: '0 10px 20px rgba(122, 74, 35, 0.3)',
             transform: 'rotate(-5deg)'
           }}>
             🔑
           </div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-1.5px', color: '#fff' }}>Welcome Back</h1>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-1.5px', color: 'var(--text-main)' }}>Welcome Back</h1>
           <p style={{ color: 'var(--text-dim)', fontSize: '1.05rem', fontWeight: 500 }}>Enter your credentials to continue</p>
         </div>
 
         {/* Error */}
         {error && (
           <div style={{
-            background: 'rgba(236, 72, 153, 0.08)',
-            border: '1px solid rgba(236, 72, 153, 0.2)',
-            color: '#f472b6',
+            background: 'rgba(185, 141, 75, 0.08)',
+            border: '1px solid rgba(185, 141, 75, 0.2)',
+            color: '#b98d4b',
             padding: '0.85rem 1.25rem',
             borderRadius: '16px',
             marginBottom: '2rem',
@@ -151,9 +151,9 @@ const LoginPage = () => {
         </form>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', margin: '2.25rem 0' }}>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+          <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }} />
           <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>or</span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+          <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }} />
         </div>
 
         <button
@@ -165,21 +165,21 @@ const LoginPage = () => {
             fontSize: '0.95rem',
             fontWeight: 800,
             borderRadius: '16px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            background: 'rgba(255,255,255,0.03)',
-            color: 'var(--color-cyan)',
+            border: '1px solid var(--glass-border)',
+            background: 'rgba(122, 74, 35, 0.04)',
+            color: 'var(--color-violet)',
             cursor: 'pointer',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
-          onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.borderColor = 'rgba(6,182,212,0.3)'; }}
-          onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.03)'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+          onMouseEnter={(e) => { e.target.style.background = 'rgba(122, 74, 35, 0.08)'; e.target.style.borderColor = 'rgba(200, 169, 106, 0.4)'; }}
+          onMouseLeave={(e) => { e.target.style.background = 'rgba(122, 74, 35, 0.04)'; e.target.style.borderColor = 'var(--glass-border)'; }}
         >
           🚀 Continue in Demo Mode
         </button>
 
         <p style={{ textAlign: 'center', marginTop: '2.5rem', color: 'var(--text-dim)', fontSize: '0.95rem', fontWeight: 500 }}>
           New to CampusBazar?{' '}
-          <Link to="/signup" style={{ color: 'var(--color-cyan)', fontWeight: 800, textDecoration: 'none' }}>
+          <Link to="/signup" style={{ color: 'var(--color-violet)', fontWeight: 800, textDecoration: 'none' }}>
             Create Account
           </Link>
         </p>

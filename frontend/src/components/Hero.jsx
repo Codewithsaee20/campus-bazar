@@ -1,14 +1,24 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, BookOpen, Sparkles, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { mockBooks } from '../data/mockBooks';
 
 const Hero = () => {
   const spotlightBooks = mockBooks.slice(0, 3);
+  const sectionRef = useRef(null);
+  const prefersReducedMotion = useReducedMotion();
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end start'],
+  });
+
+  const showcaseY = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 28]);
+  const showcaseScale = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [1, 1] : [1, 0.96]);
 
   return (
-    <section className="landing-section landing-hero-section">
+    <section className="landing-section landing-hero-section" ref={sectionRef}>
       <div className="container">
         <div className="landing-hero-grid">
           <motion.div
@@ -43,27 +53,29 @@ const Hero = () => {
             </div>
           </motion.div>
 
-          <motion.div
-            className="landing-hero-showcase glass"
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.85, ease: 'easeOut', delay: 0.1 }}
-          >
-            <div className="landing-hero-showcase-header">
-              <span>Live campus picks</span>
-              <strong>Featured now</strong>
-            </div>
-            <div className="landing-hero-book-stack">
-              {spotlightBooks.map((book, index) => (
-                <div key={book.id} className="landing-hero-book-card" style={{ '--offset': index }}>
-                  <img src={book.image} alt={book.title} />
-                  <div>
-                    <strong>{book.title}</strong>
-                    <span>{book.category}</span>
+          <motion.div style={{ y: showcaseY, scale: showcaseScale }}>
+            <motion.div
+              className="landing-hero-showcase glass"
+              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.85, ease: 'easeOut', delay: 0.1 }}
+            >
+              <div className="landing-hero-showcase-header">
+                <span>Live campus picks</span>
+                <strong>Featured now</strong>
+              </div>
+              <div className="landing-hero-book-stack">
+                {spotlightBooks.map((book, index) => (
+                  <div key={book.id} className="landing-hero-book-card" style={{ '--offset': index }}>
+                    <img src={book.image} alt={book.title} />
+                    <div>
+                      <strong>{book.title}</strong>
+                      <span>{book.category}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </div>

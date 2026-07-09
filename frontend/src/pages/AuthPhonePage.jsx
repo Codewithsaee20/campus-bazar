@@ -64,12 +64,12 @@ const AuthPhonePage = () => {
           </button>
         </form>
 
-        {message && <p style={{ marginTop: '1rem', color: '#0ea5e9' }}>{message}</p>}
+        {message && <p style={{ marginTop: '1rem', color: 'var(--color-violet)' }}>{message}</p>}
         {error && <p style={{ marginTop: '1rem', color: '#ef4444' }}>{error}</p>}
 
         <p style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--text-dim)' }}>
           Don't have an account?{' '}
-          <Link to="/signup" style={{ color: '#0ea5e9', fontWeight: 600 }}>
+          <Link to="/signup" style={{ color: 'var(--color-violet)', fontWeight: 600 }}>
             Sign up
           </Link>
         </p>

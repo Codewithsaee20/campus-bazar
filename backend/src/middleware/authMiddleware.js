@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/user.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -16,6 +17,12 @@ const verifyToken = asyncHandler(async (req, res, next) => {
 
     try {
         const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+        if (!mongoose.Types.ObjectId.isValid(decodedToken._id)) {
+            // Stale token minted while the DB was unreachable (memory-mode fallback
+            // user id) — reject so it never reaches a real ObjectId-cast query.
+            throw new ApiError(401, "Unauthorized");
+        }
 
         let college = decodedToken.college;
 

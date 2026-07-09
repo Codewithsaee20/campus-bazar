@@ -3,64 +3,41 @@ export const campusCategorySections = [
     title: 'Trending',
     items: [
       {
-        label: 'All Books',
+        label: 'All Listings',
         description: 'Open the full marketplace catalog',
         to: '/feed',
         query: {},
       },
       {
-        label: 'Engineering Books',
+        label: 'Books',
         description: 'Core technical and engineering texts',
         to: '/feed',
-        query: { genre: 'Engineering' },
+        query: { genre: 'Books' },
       },
       {
-        label: 'Science Books',
-        description: 'Physics, chemistry, and biology',
-        to: '/feed',
-        query: { genre: 'Science' },
-      },
-      {
-        label: 'Commerce Books',
-        description: 'Accounts, economics, and finance',
-        to: '/feed',
-        query: { genre: 'Commerce' },
-      },
-      {
-        label: 'Arts Books',
-        description: 'Humanities, language, and general studies',
-        to: '/feed',
-        query: { genre: 'Arts' },
-      },
-    ],
-  },
-  {
-    title: 'College Material',
-    items: [
-      {
-        label: 'Notes & Lectures',
+        label: 'Notes',
         description: 'Class notes and handwritten study material',
         to: '/feed',
-        query: { collection: 'notes' },
+        query: { genre: 'Notes' },
       },
       {
-        label: 'Engineering Material',
-        description: 'Subject references for engineering students',
+        label: 'Stationery',
+        description: 'Drafters, geometry boxes, lab coats, and supplies',
         to: '/feed',
-        query: { collection: 'engineering-materials' },
-      },
-      {
-        label: 'Lab Records & Assignments',
-        description: 'Practical files, journals, and submissions',
-        to: '/feed',
-        query: { collection: 'lab-records' },
-      },
-      {
-        label: 'PYQs & Question Papers',
-        description: 'Previous year papers and practice sets',
-        to: '/feed',
-        query: { collection: 'pyqs' },
+        query: { genre: 'Stationery' },
       },
     ],
   },
+  // PYQs & Question Papers — planned for a later release, not live yet.
+  // {
+  //   title: 'College Material',
+  //   items: [
+  //     {
+  //       label: 'PYQs & Question Papers',
+  //       description: 'Previous year papers and practice sets',
+  //       to: '/feed',
+  //       query: { collection: 'pyqs' },
+  //     },
+  //   ],
+  // },
 ];

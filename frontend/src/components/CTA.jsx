@@ -1,18 +1,20 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight, LogIn, Search } from 'lucide-react';
 
 const CTA = () => {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <section id="cta" className="landing-section landing-cta-section">
       <div className="container">
         <motion.div
           className="landing-cta-card glass"
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.75 }}
+          transition={{ duration: prefersReducedMotion ? 0.2 : 0.75 }}
         >
           <div className="landing-cta-copy">
             <div className="landing-section-eyebrow">Get started</div>

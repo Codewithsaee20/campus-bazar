@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { Archive, CircleCheckBig, Users } from 'lucide-react';
 
 const Counter = ({ from = 0, to, duration = 2 }) => {
@@ -39,15 +39,35 @@ const stats = [
 ];
 
 const Stats = () => {
+  const prefersReducedMotion = useReducedMotion();
+
+  const gridVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: prefersReducedMotion ? 0 : 0.1,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: prefersReducedMotion ? 0 : 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: prefersReducedMotion ? 0.2 : 0.55 },
+    },
+  };
+
   return (
     <section id="stats" className="landing-section landing-stats-section">
       <div className="container">
         <motion.div
           className="landing-section-heading"
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.7 }}
+          transition={{ duration: prefersReducedMotion ? 0.2 : 0.7 }}
         >
           <div className="landing-section-eyebrow">Live stats</div>
           <h2>Campus marketplace activity in real numbers</h2>
@@ -56,17 +76,20 @@ const Stats = () => {
           </p>
         </motion.div>
 
-        <div className="landing-stats-grid">
-          {stats.map((stat, index) => {
+        <motion.div
+          className="landing-stats-grid"
+          variants={gridVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
+        >
+          {stats.map((stat) => {
             const Icon = stat.icon;
             return (
               <motion.article
                 key={stat.label}
                 className="landing-stat-card glass"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.55, delay: index * 0.1 }}
+                variants={cardVariants}
               >
                 <div className="landing-stat-icon">
                   <Icon size={22} />
@@ -78,7 +101,7 @@ const Stats = () => {
               </motion.article>
             );
           })}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

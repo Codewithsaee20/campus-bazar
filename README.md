@@ -1,6 +1,6 @@
 # Campus Bazzar
 
-A modern, full-stack online book reselling platform designed for campus communities to buy, sell, and exchange books efficiently.
+A full-stack peer-to-peer marketplace built for engineering students to buy and sell **Books**, **Notes**, and **Stationery** within their campus community.
 
 ## 📋 Table of Contents
 
@@ -8,18 +8,21 @@ A modern, full-stack online book reselling platform designed for campus communit
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Features](#features)
+- [Pricing Model](#pricing-model)
 - [API Endpoints](#api-endpoints)
 - [Installation](#installation)
 - [Environment Configuration](#environment-configuration)
 - [Running the Application](#running-the-application)
+- [Deployment](#deployment)
+- [Roadmap](#roadmap)
 
 ---
 
 ## 📚 Project Overview
 
-Campus Bazzar is a peer-to-peer book reselling platform tailored for students and campus communities. It provides a seamless marketplace where users can list books for sale, browse available listings, manage orders, and rate sellers. The platform facilitates secure transactions with OTP-based verification and comprehensive book tracking features.
+Campus Bazzar is a peer-to-peer resale marketplace scoped specifically for engineering students. Sellers list **Books**, **Notes**, and **Stationery** (lab coats, drafters, geometry boxes, etc.); buyers browse, express interest, and complete the handoff with OTP-based verification. Transactions are currently **Cash on Delivery** — no payment gateway is integrated yet.
 
-**Key Objective:** Enable efficient book sharing and resale within campus ecosystems with user-friendly interfaces and secure payment workflows.
+**Key Objective:** Make it easy and low-friction for engineering students to recirculate books, notes, and stationery within their own campus instead of buying new or letting them go to waste.
 
 ---
 
@@ -32,7 +35,7 @@ Campus Bazzar is a peer-to-peer book reselling platform tailored for students an
 - **Authentication:** JWT (JSON Web Tokens)
 - **File Upload:** Cloudinary for image storage
 - **Email Service:** Nodemailer v8.0.5
-- **Security:** bcryptjs for password hashing
+- **Security:** bcryptjs for password hashing, `express-rate-limit` for abuse protection
 - **Middleware:** CORS, Cookie Parser
 - **Development:** Nodemon for hot-reload
 
@@ -57,14 +60,19 @@ Campus_Bazzar/
 │   │   ├── controllers/     # Request handlers for each resource
 │   │   ├── routes/          # API route definitions
 │   │   ├── models/          # MongoDB schema definitions
-│   │   ├── middleware/      # Authentication and upload middleware
+│   │   ├── middleware/      # Auth, upload, and rate-limiting middleware
 │   │   ├── services/        # Business logic services
-│   │   ├── config/          # Database connection and seeding
+│   │   ├── config/          # Database connection and category seeding
+│   │   ├── scripts/         # One-off data migration scripts
 │   │   └── utils/           # Helper utilities and error handling
 │   ├── server.js            # Server entry point
 │   └── package.json
 ├── frontend/
 │   ├── src/
+│   │   ├── pages/           # Route-level views (Feed, Sell, Profile, Orders, etc.)
+│   │   ├── components/      # Shared UI components (Navbar, cards, carousels)
+│   │   ├── data/            # Static/fallback data (categories, mock listings)
+│   │   └── utils/           # API client and helpers
 │   ├── package.json
 │   └── vite.config.js
 └── README.md
@@ -75,15 +83,27 @@ Campus_Bazzar/
 ## ✨ Features
 
 - **User Authentication:** Secure registration and login with OTP verification
-- **Listing Management:** Create, update, and delete book listings with image uploads
-- **Order System:** Place and manage book orders with OTP-based handoff verification
+- **Listing Management:** Create, update, and delete listings with image uploads (Books, Notes, Stationery)
+- **Order System:** Place and manage orders with OTP-based handoff verification, Cash on Delivery
 - **Ratings & Reviews:** User rating system for sellers
-- **Interest System:** Express interest in books and track buyer-seller interactions
-- **Category Management:** Organize books by categories (Admin only)
-- **Book Database:** Search and manage books with metadata
-- **Report System:** Users can report inappropriate listings (Admin monitoring)
+- **Interest System:** Express interest in a listing and manage buyer-seller negotiation
+- **Category Management:** Books / Notes / Stationery taxonomy, backed by a database-driven `Category` collection (admin-managed)
+- **Book Database:** Search and reuse existing book metadata to avoid duplicate listings
+- **Report System:** Users can report inappropriate listings (admin monitoring)
 - **Profile Management:** View and manage user profiles
-- **Health Checks:** System health monitoring endpoints
+- **Rate Limiting:** Per-route limits on auth, OTP, uploads, and listing creation to prevent abuse
+- **Health Checks:** System health monitoring endpoint
+
+---
+
+## 💰 Pricing Model
+
+Sellers enter the MRP of the item; the platform suggests a resale price automatically:
+
+- First-time listing: **80% of MRP**
+- Each additional completed resale of the same book: an extra **5% deduction**, down to a **floor of 50% of MRP**
+
+There is currently **no platform commission** — sellers receive the full listing price. This is a deliberate early-stage decision to prioritize adoption; a revenue model (commission, ads, or a payment-gateway convenience fee) is planned once the platform has meaningful transaction volume. See [Roadmap](#roadmap).
 
 ---
 
@@ -99,8 +119,8 @@ Campus_Bazzar/
 - **GET `/profile`** - Get user profile details (requires authentication)
 
 ### Listings (`/api/v1/listings`)
-- **POST `/`** - Create new book listing (requires auth, supports image upload)
-- **GET `/`** - Fetch all available book listings
+- **POST `/`** - Create new listing (requires auth, supports image upload)
+- **GET `/`** - Fetch all available listings
 - **GET `/:id`** - Get specific listing details by ID
 - **GET `/my/:id`** - Get user's specific listing (requires auth)
 - **PUT `/:id`** - Update listing details (requires auth, supports image upload)
@@ -131,7 +151,7 @@ Campus_Bazzar/
 - **GET `/`** - Get all reports (requires auth, admin only)
 
 ### Categories (`/api/v1/categories`)
-- **GET `/`** - Get all book categories (public)
+- **GET `/`** - Get all categories — Books, Notes, Stationery (public)
 - **POST `/`** - Create new category (requires auth, admin only)
 - **PUT `/:id`** - Update category (requires auth, admin only)
 - **DELETE `/:id`** - Delete category (requires auth, admin only)
@@ -149,11 +169,11 @@ Campus_Bazzar/
 ## 🚀 Installation
 
 ### Prerequisites
-- Node.js (v14 or higher)
+- Node.js (v18 or higher)
 - MongoDB (local or Atlas cloud instance)
-- npm or yarn package manager
+- npm
 - Cloudinary account (for image uploads)
-- SMTP credentials (for email notifications)
+- SMTP credentials (for email/OTP notifications)
 
 ### Backend Setup
 
@@ -167,12 +187,13 @@ cd backend
 npm install
 ```
 
-3. Create `.env` file in backend directory with required variables (see [Environment Configuration](#environment-configuration))
+3. Create a `.env` file in the backend directory with the required variables (see [Environment Configuration](#environment-configuration))
 
-4. Seed initial categories:
+4. Start the server:
 ```bash
-node src/config/seedCategories.js
+npm run dev
 ```
+Default categories (Books, Notes, Stationery) are seeded automatically on first connection to an empty database — no manual step required.
 
 ### Frontend Setup
 
@@ -186,7 +207,7 @@ cd frontend
 npm install
 ```
 
-3. Create `.env` file with API base URL:
+3. Create a `.env` file with the API base URL:
 ```bash
 VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
@@ -274,35 +295,41 @@ cd backend
 npm test
 ```
 
+**Frontend lint:**
+```bash
+cd frontend
+npm run lint
+```
+
 ---
 
-## 📝 Key Features Implementation
+## ☁️ Deployment
 
-### Authentication Flow
-- Users register with email
-- OTP sent to email for verification
-- JWT tokens issued for authenticated sessions
-- Refresh tokens for extended sessions
+No CI/CD pipeline is configured yet — deploy manually until one is added.
 
-### Order & Transaction Flow
-- User creates order/listing
-- Buyer and seller exchange via Interest system
-- OTP generated for final handoff verification
-- Order completed after successful verification
+**Backend** — deploy as a standard Node.js service (e.g. Render, Railway, Fly.io):
+- Build: `npm install`
+- Start: `npm start`
+- Set all variables from [Environment Configuration](#environment-configuration) in the host's environment settings — `MONGO_URI` should point at a production MongoDB Atlas cluster, and `CORS_ORIGIN`/`FRONTEND_ORIGIN` must match the deployed frontend's URL.
 
-### Security Features
-- Password hashing with bcryptjs
-- JWT-based authentication
-- OTP verification for sensitive transactions
-- CORS protection
-- Role-based authorization (admin roles)
+**Frontend** — deploy as a static build (e.g. Vercel, Netlify):
+- Build: `npm run build` (output in `frontend/dist`)
+- Set `VITE_API_BASE_URL` to the deployed backend's `/api/v1` URL.
 
-### Image Management
-- Cloudinary integration for reliable image storage
-- Support for multiple images per listing
-- Automatic image optimization and delivery
+**Before going live:**
+- Rotate `JWT_SECRET`/`JWT_REFRESH_SECRET` to strong production values (never reuse dev secrets)
+- Confirm `MONGO_URI` targets the production database, not a local/dev instance
+- Verify Cloudinary and SMTP credentials are production-scoped
+- Since this is Cash on Delivery only, make sure the buyer-seller handoff/OTP flow is clearly communicated in the UI before real users transact
 
---
+---
+
+## 🗺 Roadmap
+
+- **PYQs (Previous Year Question Papers):** planned as a future category, not live yet
+- **Payment integration:** move off Cash-on-Delivery once there's real transaction volume
+- **Revenue model:** introduce a commission or convenience fee (currently zero — sellers keep 100% of the listing price) once payments are integrated
+- **Ads:** monetization via on-site advertising once the user base justifies it
 
 ---
 

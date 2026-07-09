@@ -158,7 +158,7 @@ const SignUpPage = () => {
           padding: '2rem',
           borderRadius: '24px',
           background: 'rgba(255,255,255,0.92)',
-          border: '1px solid rgba(139, 92, 246, 0.12)',
+          border: '1px solid rgba(122, 74, 35, 0.12)',
           boxShadow: '0 24px 60px rgba(15, 23, 42, 0.10)',
           color: 'var(--text-main)',
         }}
@@ -291,7 +291,7 @@ const SignUpPage = () => {
               borderRadius: '14px',
               fontSize: '1rem',
               fontWeight: 800,
-              boxShadow: '0 18px 30px rgba(139, 92, 246, 0.20)',
+              boxShadow: '0 18px 30px rgba(122, 74, 35, 0.20)',
               transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
               opacity: loading ? 0.7 : 1,
               cursor: loading ? 'not-allowed' : 'pointer',
@@ -299,11 +299,11 @@ const SignUpPage = () => {
             onMouseEnter={(event) => {
               if (loading) return;
               event.currentTarget.style.transform = 'translateY(-1px)';
-              event.currentTarget.style.boxShadow = '0 22px 34px rgba(236, 72, 153, 0.20)';
+              event.currentTarget.style.boxShadow = '0 22px 34px rgba(185, 141, 75, 0.20)';
             }}
             onMouseLeave={(event) => {
               event.currentTarget.style.transform = 'translateY(0)';
-              event.currentTarget.style.boxShadow = '0 18px 30px rgba(139, 92, 246, 0.20)';
+              event.currentTarget.style.boxShadow = '0 18px 30px rgba(122, 74, 35, 0.20)';
             }}
           >
             {loading ? 'Creating account...' : 'Send OTP'}

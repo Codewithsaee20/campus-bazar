@@ -247,10 +247,6 @@ const ListingFormPage = () => {
                 Add a clean listing with a preview image, clear details, and your contact info so buyers can reach you quickly.
               </p>
             </div>
-            <div className="listing-badge">
-              <UploadCloud size={18} />
-              <span>Responsive listing form</span>
-            </div>
           </header>
 
           {successMessage ? <div className="listing-success"><CheckCircle2 size={18} /> {successMessage}</div> : null}
@@ -331,7 +327,7 @@ const ListingFormPage = () => {
                     <input
                       className="form-input"
                       type="number"
-                      inputMode="numeric"
+                      inputMode="text"
                       value={form.price}
                       onChange={(event) => updateField('price', event.target.value)}
                       placeholder="320"

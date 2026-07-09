@@ -193,7 +193,7 @@ const Navbar = () => {
               </div>
 
               <div className="cb-category-drawer-note">
-                Tap a category to open the marketplace already filtered and sorted for books, notes, and college material.
+                Tap a category to open the marketplace already filtered and sorted for books, notes, and stationery.
               </div>
 
               {campusCategorySections.map((section) => (
