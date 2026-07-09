@@ -54,7 +54,7 @@ const AuthPhonePage = () => {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@gmail.com"
+            placeholder="name@vcet.edu.in"
             className="form-input"
             required
           />

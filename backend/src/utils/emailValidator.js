@@ -12,9 +12,6 @@ const ALLOWED_EMAILS = process.env.ALLOWED_EMAILS
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean) || [];
 
-const TEST_EMAIL_DOMAINS = ['gmail.com', 'googlemail.com'];
-const TEST_COLLEGE_LABEL = 'Campus Bazaar';
-
 const getDomainFromEmailInternal = (email) => {
   if (!email || !email.includes('@')) return '';
   return email.split('@')[1]?.toLowerCase().trim() || '';
@@ -37,14 +34,11 @@ export function isCollegeEmail(email) {
   const domain = getDomainFromEmailInternal(email);
 
   if (ALLOWED_EMAILS.includes(normalizedEmail)) return true;
-  if (TEST_EMAIL_DOMAINS.includes(domain)) return true;
   return Boolean(getMatchingAllowedDomain(domain));
 }
 
 export function getCollegeFromEmail(email) {
   const domain = getDomainFromEmailInternal(email);
-
-  if (TEST_EMAIL_DOMAINS.includes(domain)) return TEST_COLLEGE_LABEL;
 
   const canonicalAllowedDomain = getMatchingAllowedDomain(domain);
 

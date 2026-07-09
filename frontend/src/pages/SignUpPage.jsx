@@ -118,7 +118,7 @@ const SignUpPage = () => {
         label: 'Email',
       name: 'email',
       type: 'email',
-        placeholder: 'name@gmail.com',
+        placeholder: 'name@vcet.edu.in',
       autoComplete: 'email',
     },
     {
