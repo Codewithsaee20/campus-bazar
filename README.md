@@ -1,6 +1,6 @@
 # Campus Bazzar
 
-A full-stack peer-to-peer marketplace built for engineering students to buy and sell **Books**, **Notes**, and **Stationery** within their campus community.
+A full-stack peer-to-peer marketplace for engineering students to buy and sell **Books**, **Notes**, and **Stationery** within their campus community.
 
 ## 📋 Table of Contents
 
@@ -20,9 +20,9 @@ A full-stack peer-to-peer marketplace built for engineering students to buy and 
 
 ## 📚 Project Overview
 
-Campus Bazzar is a peer-to-peer resale marketplace scoped specifically for engineering students. Sellers list **Books**, **Notes**, and **Stationery** (lab coats, drafters, geometry boxes, etc.); buyers browse, express interest, and complete the handoff with OTP-based verification. Transactions are currently **Cash on Delivery** — no payment gateway is integrated yet.
+Campus Bazzar is a campus-only resale marketplace scoped for engineering students. Sellers list **Books**, **Notes**, and **Stationery** (lab coats, drafters, geometry boxes, etc.); buyers browse the feed, express interest, place orders, and complete the handoff with OTP-based verification. Transactions are currently **Cash on Delivery** and no payment gateway is integrated yet.
 
-**Key Objective:** Make it easy and low-friction for engineering students to recirculate books, notes, and stationery within their own campus instead of buying new or letting them go to waste.
+**Key Objective:** Make it easy and low-friction for engineering students to recirculate useful study material within their own campus instead of buying new or letting it go to waste.
 
 ---
 
@@ -32,10 +32,10 @@ Campus Bazzar is a peer-to-peer resale marketplace scoped specifically for engin
 - **Runtime:** Node.js
 - **Framework:** Express.js v5.2.1
 - **Database:** MongoDB with Mongoose ODM v9.2.4
-- **Authentication:** JWT (JSON Web Tokens)
+- **Authentication:** JWT (JSON Web Tokens) with httpOnly cookies and OTP login/verification
 - **File Upload:** Cloudinary for image storage
 - **Email Service:** Nodemailer v8.0.5
-- **Security:** bcryptjs for password hashing, `express-rate-limit` for abuse protection
+- **Security:** bcryptjs for password hashing, `express-rate-limit` for abuse protection, CORS allowlisting
 - **Middleware:** CORS, Cookie Parser
 - **Development:** Nodemon for hot-reload
 
@@ -45,7 +45,7 @@ Campus Bazzar is a peer-to-peer resale marketplace scoped specifically for engin
 - **HTTP Client:** Axios v1.15.0
 - **Routing:** React Router DOM v7.14.1
 - **Animations:** Framer Motion v12.38.0
-- **3D Graphics:** Three.js v0.183.2 with React Three Fiber
+- **3D Graphics:** Three.js v0.183.2 with React Three Fiber and Drei
 - **UI Icons:** Lucide React v0.577.0
 - **Build Tool:** Vite with ESLint
 
@@ -69,9 +69,10 @@ Campus_Bazzar/
 │   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/           # Route-level views (Feed, Sell, Profile, Orders, etc.)
-│   │   ├── components/      # Shared UI components (Navbar, cards, carousels)
+│   │   ├── pages/           # Route-level views (Landing, Auth, Feed, Sell, Orders, Profile, etc.)
+│   │   ├── components/      # Shared UI components (Navbar, cards, carousels, route guards)
 │   │   ├── data/            # Static/fallback data (categories, mock listings)
+│   │   ├── store/           # Zustand auth/app state
 │   │   └── utils/           # API client and helpers
 │   ├── package.json
 │   └── vite.config.js
@@ -82,16 +83,17 @@ Campus_Bazzar/
 
 ## ✨ Features
 
-- **User Authentication:** Secure registration and login with OTP verification
-- **Listing Management:** Create, update, and delete listings with image uploads (Books, Notes, Stationery)
-- **Order System:** Place and manage orders with OTP-based handoff verification, Cash on Delivery
-- **Ratings & Reviews:** User rating system for sellers
+- **User Authentication:** Registration and login with email OTP verification, refresh tokens, and httpOnly cookies
+- **Listing Management:** Create, update, and delete listings with image uploads for Books, Notes, and Stationery
+- **Marketplace Feed:** Browse active listings and drill into listing/book detail views
+- **Order System:** Place and manage orders with accept, deliver, confirm-delivery, cancel, and OTP handoff flows
 - **Interest System:** Express interest in a listing and manage buyer-seller negotiation
-- **Category Management:** Books / Notes / Stationery taxonomy, backed by a database-driven `Category` collection (admin-managed)
+- **Category Management:** Books / Notes / Stationery taxonomy backed by a database-driven `Category` collection (admin-managed)
 - **Book Database:** Search and reuse existing book metadata to avoid duplicate listings
-- **Report System:** Users can report inappropriate listings (admin monitoring)
-- **Profile Management:** View and manage user profiles
-- **Rate Limiting:** Per-route limits on auth, OTP, uploads, and listing creation to prevent abuse
+- **Ratings & Reviews:** User rating system for sellers
+- **Report System:** Users can report inappropriate listings for admin review
+- **Profile Management:** View account details, listings, orders, cart, and seller activity from the frontend
+- **Rate Limiting:** Per-route limits on auth, OTP, uploads, listing creation, and global API traffic
 - **Health Checks:** System health monitoring endpoint
 
 ---
@@ -110,13 +112,13 @@ There is currently **no platform commission** — sellers receive the full listi
 ## 🔌 API Endpoints
 
 ### Authentication (`/api/v1/auth`)
-- **POST `/register`** - Register a new user account
+- **POST `/register`** - Register a new user account and trigger OTP delivery
 - **POST `/send-otp`** - Send OTP to email for verification
-- **POST `/verify-otp`** - Verify OTP and complete registration
+- **POST `/verify-otp`** - Verify OTP, set auth cookies, and complete login
 - **POST `/logout`** - Logout user (requires authentication)
-- **POST `/refresh`** - Refresh JWT token
+- **POST `/refresh`** - Refresh JWT access token
 - **GET `/me`** - Get current user profile (requires authentication)
-- **GET `/profile`** - Get user profile details (requires authentication)
+- **GET `/profile`** - Alias for the current user profile endpoint (requires authentication)
 
 ### Listings (`/api/v1/listings`)
 - **POST `/`** - Create new listing (requires auth, supports image upload)
@@ -131,8 +133,10 @@ There is currently **no platform commission** — sellers receive the full listi
 - **GET `/:id`** - Get order details by ID (requires auth)
 - **GET `/my/buying`** - Get all orders where user is buyer (requires auth)
 - **GET `/my/selling`** - Get all orders where user is seller (requires auth)
+- **PATCH `/:id/accept`** - Accept an order request (requires auth)
+- **PATCH `/:id/deliver`** - Mark an order as delivered by the seller (requires auth)
+- **PATCH `/:id/confirm-delivery`** - Confirm delivery completion (requires auth)
 - **PATCH `/:id/cancel`** - Cancel an order (requires auth)
-- **POST `/:id/otp/generate`** - Generate OTP for order handoff verification (requires auth)
 - **POST `/:id/otp/verify`** - Verify OTP for secure transaction completion (requires auth)
 
 ### Interests (`/api/v1/interest`)
@@ -233,6 +237,10 @@ JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_here
 JWT_EXPIRE=7d
 JWT_REFRESH_EXPIRE=30d
 
+# Auth / campus access
+ALLOWED_COLLEGE_DOMAINS=vcet.edu.in
+ALLOW_IP_ACCEPTANCE=true
+
 # Cloudinary (Image Upload)
 CLOUDINARY_NAME=your_cloudinary_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
@@ -247,9 +255,6 @@ SMTP_PASS=your_app_password
 # CORS
 CORS_ORIGIN=http://localhost:5173,http://localhost:5174
 FRONTEND_ORIGIN=http://localhost:5173
-
-# IP Acceptance (OTP Verification)
-ALLOW_IP_ACCEPTANCE=true
 ```
 
 ---

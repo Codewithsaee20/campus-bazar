@@ -1,8 +1,11 @@
 import cors from "cors";
 import express from "express";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
 const app = express();
+
+app.use(helmet());
 
 const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_ORIGIN || "http://localhost:5173,http://localhost:5174")
     .split(",")

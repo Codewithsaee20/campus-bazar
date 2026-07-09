@@ -10,10 +10,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const baseCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  secure: isProduction,
+  // Cross-site cookies (Vercel frontend -> Render backend) require SameSite=None + Secure.
+  sameSite: isProduction ? "none" : "lax",
 };
 
 const register = asyncHandler(async (req, res) => {
