@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { Listing } from "../models/listing.model.js";
-import { Order } from "../models/order.model.js";
 import { Category } from "../models/category.model.js";
 import { getSuggestedPrice } from "../utils/pricing.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -41,17 +40,9 @@ const resolveCategoryId = async (categoryId) => {
   );
 };
 
-const getCompletedResaleCount = async (bookId) => {
-  return Order.countDocuments({
-    status: "COMPLETED",
-    bookId: bookId,
-  });
-};
-
 const createListing = async (data, userId, college) => {
   const mrp = Number(data.mrp);
-  const resaleCount = await getCompletedResaleCount(data.bookId);
-  const suggestedPrice = getSuggestedPrice(mrp, resaleCount);
+  const suggestedPrice = getSuggestedPrice(mrp);
   const categoryId = await resolveCategoryId(data.categoryId);
   const resolvedCollege = college || "Campus Bazaar";
 
@@ -59,7 +50,7 @@ const createListing = async (data, userId, college) => {
     ...data,
     categoryId,
     mrp,
-    price: data.price !== undefined ? Number(data.price) : suggestedPrice,
+    price: suggestedPrice,
     suggestedPrice,
     sellerId: userId,
     college: resolvedCollege,
@@ -132,22 +123,17 @@ const updateListing = async (id, userId, data) => {
 
   if (data.mrp !== undefined) {
     const mrp = Number(data.mrp);
-    const bookId = data.bookId || listing.bookId;
-    const resaleCount = await getCompletedResaleCount(bookId);
-    const suggestedPrice = getSuggestedPrice(mrp, resaleCount);
+    const suggestedPrice = getSuggestedPrice(mrp);
 
     listing.mrp = mrp;
     listing.suggestedPrice = suggestedPrice;
-    if (data.price === undefined) {
-      listing.price = suggestedPrice;
-    }
+    listing.price = suggestedPrice;
   }
 
   const updatableFields = [
     "title",
     "description",
     "categoryId",
-    "price",
     "department",
     "semester",
     "subject",

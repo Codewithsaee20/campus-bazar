@@ -11,7 +11,7 @@ const emptyForm = {
   title: '',
   categoryId: '',
   description: '',
-  price: '',
+  mrp: '',
   condition: 'New',
   contactDetails: '',
 };
@@ -123,7 +123,7 @@ const ListingFormPage = () => {
         title: existingListing.title || '',
         categoryId: existingListing.categoryId || '',
         description: existingListing.description || '',
-        price: existingListing.price ? String(existingListing.price) : '',
+        mrp: existingListing.mrp ? String(existingListing.mrp) : '',
         condition: existingListing.condition || 'New',
         contactDetails: existingListing.contactDetails || '',
       });
@@ -143,13 +143,13 @@ const ListingFormPage = () => {
     const title = normalizeText(form.title);
     const description = normalizeText(form.description);
     const contactDetails = normalizeText(form.contactDetails);
-    const price = normalizeText(String(form.price));
+    const mrp = normalizeText(String(form.mrp));
 
     if (!title) nextErrors.title = 'Book name is required.';
     if (!form.categoryId) nextErrors.categoryId = 'Category is required.';
     if (!description) nextErrors.description = 'Description is required.';
-    if (!price) nextErrors.price = 'Price is required.';
-    if (price && Number.isNaN(Number(price))) nextErrors.price = 'Price must be numeric.';
+    if (!mrp) nextErrors.mrp = 'MRP is required.';
+    if (mrp && Number.isNaN(Number(mrp))) nextErrors.mrp = 'MRP must be numeric.';
     if (!form.condition) nextErrors.condition = 'Condition is required.';
     if (!contactDetails) nextErrors.contactDetails = 'Contact details are required.';
     if (!selectedImage && !previewUrl) nextErrors.image = 'Book image is required.';
@@ -161,7 +161,7 @@ const ListingFormPage = () => {
         title,
         categoryId: form.categoryId,
         description,
-        price: price ? Number(price) : 0,
+        mrp: mrp ? Number(mrp) : 0,
         contactDetails,
       },
     };
@@ -200,11 +200,10 @@ const ListingFormPage = () => {
       apiPayload.append('title', normalized.title);
       apiPayload.append('bookId', toBookId(normalized.title));
       apiPayload.append('description', normalized.description);
-      apiPayload.append('price', String(normalized.price));
       apiPayload.append('condition', normalized.condition === 'New' ? 'New' : 'Good');
       apiPayload.append('categoryId', normalized.categoryId);
       apiPayload.append('contactDetails', normalized.contactDetails);
-      apiPayload.append('mrp', String(normalized.price));
+      apiPayload.append('mrp', String(normalized.mrp));
       apiPayload.append('college', 'Campus Bazaar');
       if (selectedImage) {
         apiPayload.append('images', selectedImage);
@@ -323,17 +322,25 @@ const ListingFormPage = () => {
                   </div>
 
                   <div className="listing-field">
-                    <label className="listing-label">Price</label>
+                    <label className="listing-label">MRP (₹)</label>
                     <input
                       className="form-input"
                       type="number"
                       inputMode="text"
-                      value={form.price}
-                      onChange={(event) => updateField('price', event.target.value)}
-                      placeholder="320"
+                      value={form.mrp}
+                      onChange={(event) => updateField('mrp', event.target.value)}
+                      placeholder="500"
                       required
                     />
-                    {errors.price ? <p className="listing-field-error">{errors.price}</p> : null}
+                    {errors.mrp ? (
+                      <p className="listing-field-error">{errors.mrp}</p>
+                    ) : (
+                      <p className="listing-help">
+                        Buyers pay 75% of MRP{form.mrp && !Number.isNaN(Number(form.mrp))
+                          ? ` — ₹${Math.round(Number(form.mrp) * 0.75)}`
+                          : ''}. You receive the full sale amount.
+                      </p>
+                    )}
                   </div>
                 </div>
 
